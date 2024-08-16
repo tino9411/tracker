@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:docker-entrypoint-initdb.
+      - ./init.sql:/docker-entrypoint-initdb.
     ports:
       - "5432:5432"
 
@@ -19,7 +19,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/user_db
     ports:
-      - "5000:5000"
+      - "5100:5100"
     depends_on:
       - postgres
 

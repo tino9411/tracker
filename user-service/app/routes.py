@@ -22,14 +22,17 @@ def create_user():
 
     # Has the password after validation
 
-    user_data['password'] = generate_password_hash(data['password'], method='sha256')
+    user_data['password'] = generate_password_hash(data['password'], method='pbkdf2:sha256')
     # Create a new User instance
     new_user = User(**user_data)
 
     try:
         db.session.add(new_user)
         db.session.commit()
-        return UserSchema().jsonify(new_user), 201  # Serialize and return the newly created user
+
+        # Serialize the user object using UserSchema
+        user_json = UserSchema().dump(new_user)
+        return jsonify(user_json), 201      
     except IntegrityError:
         db.session.rollback()
         return jsonify({'error': 'Username or email already exists'}), 400

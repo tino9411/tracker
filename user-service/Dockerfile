@@ -20,12 +20,14 @@ COPY . .
 
 # Make port 5000 available to the world outside this container
 
-EXPOSE 5000
+EXPOSE 5100
 
 # Define enviroment variable
 
 ENV FLASK_APP=app
+ENV FLASK_RUN_HOST=0.0.0.0
+ENV FLASK_RUN_PORT=5100
 
 # Run the application
 
-CMD ["flask", "run", "--host=0.0.0.0"]
+CMD ["flask", "run"]
