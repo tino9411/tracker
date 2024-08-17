@@ -36,7 +36,9 @@ def create_user():
         return jsonify(user_json), 201
     except IntegrityError:
         db.session.rollback()
-        return jsonify({'error': 'Username or email already exists'}), 400
+        return jsonify({
+            'error': 'Username or email already exists'
+        }), 400
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
@@ -61,9 +63,13 @@ def get_user(user_id):
             # Return a 404 error if the user is not found
             return jsonify({'error': 'User not found'}), 404
     except ValidationError as err:
-        return jsonify({'error': 'Invalid user ID format', 'message': str(err)}), 400
+        return jsonify({
+            'error': 'Invalid user ID format', 'message': str(err)
+        }), 400
     except Exception as e:
-        return jsonify({'error': 'An unexpected error occured', 'message': str(e)})
+        return jsonify({
+            'error': 'An unexpected error occured', 'message': str(e)
+        }), 500
 
 
 @user.route('/users/<user_id>', methods=['PATCH'])
@@ -84,7 +90,9 @@ def update_user(user_id):
         try:
             user_data = UserSchema().load(data, partial=True)
         except ValidationError as err:
-            return jsonify({'error': 'Invalid data', 'messages': err.messages}), 400
+            return jsonify({
+                'error': 'Invalid data', 'messages': err.messages
+            }), 400
 
         # Update the user object with the provided data
         for key, value in user_data.items():
@@ -100,4 +108,38 @@ def update_user(user_id):
     except ValueError:
         return jsonify({'error': 'Invalid user ID format'}), 400
     except Exception as e:
-        return jsonify({'error': 'An unexpecred error occured', 'message': str(e)}), 500
+        return jsonify({
+            'error': 'An unexpecred error occured', 'message': str(e)
+        }), 500
+
+
+@user.route('/users/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    try:
+        # Validate the UUID format
+        uuid_obj = uuid.UUID(user_id)
+
+        # Query the databse for the user
+        user = User.query.get(uuid_obj)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Delete the user
+        db.session.delete(user)
+        db.session.commit()
+
+        return jsonify({
+            'message': str("User has been deleted")
+        }), 200
+
+    except ValueError:
+        # Handle invalid UUID format
+        return jsonify(
+            {
+                'error': 'Invalid user ID format'  
+            }), 400
+        db.session.rollback()
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
