@@ -2,3 +2,5 @@ flask
 Flask_sqlalchemy
 psycopg2-binary
 marshmallow
+Flask-Mail
+python-dotenv

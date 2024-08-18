@@ -6,6 +6,8 @@ from .utils import hash_password, check_password
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 import uuid
+import secrets
+from datetime import datetime, timezone, timedelta
 
 
 def create_user():
@@ -170,6 +172,85 @@ def update_password(user_id):
     except ValueError:
         # Handle invalid UUID format
         return jsonify({'error': 'Invalid user ID format'}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def reset_password():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Generate a reset token
+        reset_token = secrets.token_urlsafe(32)
+        token_expiry = datetime.now(timezone.utc) + timedelta(hours=1)  # Token is valid for one hour
+
+        # Store the token and expiry in the database
+        user.reset_token = reset_token
+        user.token_expiry = token_expiry
+        db.session.commit()
+
+        # TODO: Send email to the user with the reset token (e.g., as a query parameter in a reset link)
+        # Example: send_reset_email(user.email, reset_token)
+
+        return jsonify({
+                'message': 'Password reset email sent'
+            }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+def reset_password_with_token():
+    try:
+        data = request.get_json()
+        reset_token = data.get('token')
+        new_password = data.get('new_password')
+
+        if not reset_token or not new_password:
+            return jsonify({
+                'error': 'Token and new password are required'
+            }), 400
+
+        # Find the user by reset token
+        user = User.query.filter_by(reset_token=reset_token).first()
+
+        if not user:
+            return jsonify({
+                'error': 'Invalid or expired token'}), 400
+        
+        # Convert the naive token_expiry to a timezone-aware datetime
+        if user.token_expiry.tzinfo is None:
+            user.token_expiry = user.token_expiry.replace(tzinfo=timezone.utc)
+
+        # Check if the token as expired
+        current_time = datetime.now(timezone.utc)
+        if current_time > user.token_expiry:
+            return jsonify({
+                'error': 'Token has expired'}), 400
+
+        # Hash the password
+        hashed_new_password = hash_password(new_password)
+        # Update the user's password and clear the reset token
+        user.password = hashed_new_password
+        user.reset_token = None
+        user.tokens_expiry = None
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Password has been reset successfully'}), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

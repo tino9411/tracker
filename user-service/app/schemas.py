@@ -7,10 +7,10 @@ def validate_password(password):
     if not re.search("[a-z]", password):
         raise ValidationError("Password must contain at least one lowercase letter")
     if not re.search("[A-Z]", password):
-        raise ValidationError("Password must contain at least on uppercase letter")
+        raise ValidationError("Password must contain at least one uppercase letter")
     if not re.search("[0-9]", password):
         raise ValidationError("Password must contain at least one digit")
-    if not re.search("[@#¢%^&+=!]", password):
+    if not re.search("[!@#$%^&*(),.?\":{}|<>]", password):
         raise ValidationError("Password must contain at least one speicial character")
     if re.search("\s", password):
         raise ValidationError("Password must not contain spaces")
@@ -28,3 +28,6 @@ class UserSchema(Schema):
     last_name = fields.String(validate=validate.Length(max=50))
     date_created = fields.DateTime(dump_only=True)  # Read-only, auto generated
     last_login_time = fields.DateTime(dump_only=True)  # Read-only, will be updated on login
+    reset_token = fields.String(dump_only=True)
+    token_expiry = fields.DateTime(dump_only=True)
+

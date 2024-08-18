@@ -1,5 +1,5 @@
 from flask import Blueprint
-from .controllers import create_user, get_user, update_user, delete_user, update_password
+from .controllers import create_user, get_user, update_user, delete_user, update_password, reset_password, reset_password_with_token
 
 user = Blueprint('user', __name__)
 
@@ -27,3 +27,13 @@ def delete_user_route(user_id):
 @user.route('/users/<user_id>/password', methods=['PATCH'])
 def update_password_route(user_id):
     return update_password(user_id)
+
+
+@user.route('/reset-password', methods=['POST'])
+def reset_password_route():
+    return reset_password()
+
+
+@user.route('/reset-password-with-token', methods=['PATCH'])
+def reset_password_with_token_route():
+    return reset_password_with_token()

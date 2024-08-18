@@ -15,3 +15,8 @@ class User(db.Model):
     last_name = db.Column(db.String(50), nullable=True)
     date_created = db.Column(db.DateTime, nullable=False, default=db.func.now())
     last_login_time = db.Column(db.DateTime, nullable=True)
+    reset_token = db.Column(db.String(255), nullable=True)
+    token_expiry = db.Column(db.DateTime, nullable=True)
+
+    def __repr__(self):
+        return f"<User {self.username}>"

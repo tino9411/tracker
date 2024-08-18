@@ -1,4 +1,5 @@
 from werkzeug.security import check_password_hash, generate_password_hash
+from flask import request
 
 
 def hash_password(password):
@@ -14,3 +15,9 @@ def check_password(hashed_password, current_password):
     :return: True if the password matches, otherwise False.
     """
     return check_password_hash(hashed_password, current_password)
+
+
+def generate_reset_link(user):
+    # Use request.host_url to dynamically get the base URL
+    base_url = request.host_url.rstrip('/')
+    return f"{base_url}/reset_password?token={user.reset_token}"
