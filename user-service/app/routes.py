@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from .models import User
 from .database import db
 from .schemas import UserSchema
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 import uuid
@@ -134,12 +134,48 @@ def delete_user(user_id):
 
     except ValueError:
         # Handle invalid UUID format
-        return jsonify(
-            {
-                'error': 'Invalid user ID format'  
-            }), 400
         db.session.rollback()
+        return jsonify({'error': 'Invalid user ID format'  }), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
+
+@user.route('/users/<user_id>/password', methods=['PATCH'])
+def update_password(user_id):
+    try:
+        # Validate the UUID format
+        uuid_obj = uuid.UUID(user_id)
+
+        # Query the database for the user
+        user = User.query.get(uuid_obj)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        # Extract current and new passwords from the request
+        data = request.get_json()
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not current_password or not new_password:
+            return jsonify({'error': 'Current and new passwords are required'}), 400
+        # Check if the current password matched the stored password
+        if not check_password_hash(user.password, current_password):
+            return jsonify({'error': 'Incorrect current password'}), 400
+
+        # Hash the new password
+        hashed_new_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+
+        # Update the user's password in the database
+        user.password = hashed_new_password
+        db.session.commit()
+
+        # TODO: Invalidate active session
+
+        return jsonify({'message': 'Password updated successfully'}), 200
+
+    except ValueError:
+        # Handle invalid UUID format
+        return jsonify({'error': 'Invalid user ID format'}), 400
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
