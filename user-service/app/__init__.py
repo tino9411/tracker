@@ -6,6 +6,7 @@ from flask_migrate import Migrate
 from .mail import mail_instance
 from .routes import user
 from .database import db
+from .default_roles import create_default_roles
 
 
 load_dotenv()
@@ -45,6 +46,10 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+
+        # Create default roles
+        create_default_roles()
+        
     app.register_blueprint(user, url_prefix='/api')
 
     return app

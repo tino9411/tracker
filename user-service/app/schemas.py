@@ -15,6 +15,10 @@ def validate_password(password):
     if re.search("\s", password):
         raise ValidationError("Password must not contain spaces")
 
+class RoleSchema(Schema):
+    id = fields.UUID(dump_only=True)
+    name = fields.String(required=True, validate=validate.Length(min=1, max=50))
+
 
 class UserSchema(Schema):
     id = fields.UUID(dump_only=True)  # UUID will be generated automatically, so it's read-only
@@ -31,4 +35,6 @@ class UserSchema(Schema):
     reset_token = fields.String(dump_only=True)
     token_expiry = fields.DateTime(dump_only=True)
     isActive = fields.Boolean(dump_only=True)
+    roles = fields.Nested(RoleSchema, many=True, dump_only=True)  # Include roles as nested field
+    
 

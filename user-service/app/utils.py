@@ -2,7 +2,31 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from flask import request
 from flask_mail import Message
 from .mail import mail_instance
+from .models import User
+from flask_jwt_extended import get_jwt_identity
 import logging
+
+
+def check_user_role(required_role):
+    """
+    Checks if the current user has the required role.
+
+    :param required_role: The name of the role to check (e.g., 'admin').
+    :return: True if the user has the role, False otherwise.
+    """
+
+    # Get the ID of the current user from the JWT token
+    current_user_id = get_jwt_identity()
+
+    # Query the database for the current user
+    user = User.query.get(current_user_id)
+
+    if not user:
+        return False
+
+    # Check if the user has the required role
+    return user.has_role(required_role)
+
 
 
 def hash_password(password):

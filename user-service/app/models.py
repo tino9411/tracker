@@ -2,6 +2,22 @@ from app.database import db
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
+# Association table for the many-to-many relationship between User and Role
+user_roles = db.Table(
+    'user_roles',
+    db.Column('user_id', UUID(as_uuid=True), db.ForeignKey('user.id'), primary_key=True),
+    db.Column('role_id', UUID(as_uuid=True), db.ForeignKey('role.id'), primary_key=True)
+)
+
+class Role(db.Model):
+    __tablename__ = 'role'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+    def __reprs__(self):
+        return f"<Role {self.name}>"
+    
 
 class User(db.Model):
     __tablename__ = 'user'
@@ -19,5 +35,16 @@ class User(db.Model):
     token_expiry = db.Column(db.DateTime, nullable=True)
     isActive = db.Column(db.Boolean, nullable=False, default=True)
 
+    # Relationship to the Role model
+
+    roles = db.relationship('Role', secondary=user_roles, lazy='subquery',
+                             backref=db.backref('users', lazy=True))
+
     def __repr__(self):
         return f"<User {self.username}>"
+    
+    def has_role(self, role_name):
+        """
+        Checks if the user has a specific role.
+        """
+        return any(role.name == role_name for role in self.roles)

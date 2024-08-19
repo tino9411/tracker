@@ -1,6 +1,6 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
-from .controllers import  create_user, get_user, update_user, delete_user, update_password, reset_password, logout, refresh, reset_password_with_token, login, deactivate, reactivate
+from .controllers import  create_user, get_user, update_user, delete_user, update_password, reset_password, logout, refresh, reset_password_with_token, login, deactivate, reactivate, create_role, get_roles, update_role, delete_role, assign_role_to_user
 
 user = Blueprint('user', __name__)
 
@@ -71,3 +71,34 @@ def deactivate_route(user_id):
 @jwt_required()
 def reactivate_route(user_id):
     return reactivate(user_id)
+
+
+@user.route('/users/<user_id>/roles/<role_id>', methods=['POST'])
+@jwt_required()
+def assign_role_to_user_route(user_id, role_id):
+    return assign_role_to_user(user_id, role_id)
+
+
+# Role-related routes
+@user.route('/roles', methods=['POST'])
+@jwt_required()
+def create_role_route():
+    return create_role()
+
+
+@user.route('/roles', methods=['GET'])
+@jwt_required()
+def get_roles_route():
+    return get_roles()
+
+
+@user.route('/roles/<role_id>', methods=['PATCH'])
+@jwt_required()
+def update_role_route(role_id):
+    return update_role(role_id)
+
+
+@user.route('/roles/<role_id>', methods=['DELETE'])
+@jwt_required()
+def delete_role_route(role_id):
+    return delete_role(role_id)

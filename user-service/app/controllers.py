@@ -1,8 +1,8 @@
 from flask import jsonify, request
-from .models import User
+from .models import User, Role
 from .database import db
-from .schemas import UserSchema
-from .utils import hash_password, check_password, generate_reset_link, send_email
+from .schemas import UserSchema, RoleSchema
+from .utils import hash_password, check_password, generate_reset_link, send_email, check_user_role
 from flask_jwt_extended import create_access_token, create_refresh_token, set_refresh_cookies, unset_jwt_cookies, get_jwt_identity, set_access_cookies
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
@@ -27,6 +27,16 @@ def create_user():
     new_user = User(**user_data)
 
     try:
+        # Query the "user" role from the database
+        user_role = Role.query.filter_by(name='user').first()
+
+        if not user_role:
+            return jsonify({'error': 'Default user role not found'}), 500
+        
+        # Assign the "user" role to the new user
+        new_user.roles.append(user_role)
+
+        # Add thr new "user" role to the new user
         db.session.add(new_user)
         db.session.commit()
 
@@ -115,12 +125,26 @@ def delete_user(user_id):
         # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
 
+        # Get the ID of the current user from the JWT token
+        current_user_id = get_jwt_identity()
+
         # Query the databse for the user
         user = User.query.get(uuid_obj)
         if not user:
             return jsonify({'error': 'User not found'}), 404
+        
+        # Check if the user is trying to delete thier own account
+        if str(current_user_id) == user_id:
+            # Allow the user to delete their own account
+            db.session.delete(user)
+            db.session.commit()
+            return jsonify({'message': 'Your account has been deleted'}), 200
+        
+        # Check if the current user as the 'admin' role
+        if not check_user_role('admin'):
+            return jsonify({'message': 'You do not have permission to delete other users'}), 403
 
-        # Delete the user
+        # Delete the user if they are an admin
         db.session.delete(user)
         db.session.commit()
 
@@ -370,6 +394,106 @@ def reactivate(user_id):
     except ValueError:
         # Handle invalid UUID format
         return jsonify({'error': 'Invalid user ID format'}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def assign_role_to_user(user_id, role_id):
+    try:
+        # Validate the UUID format for user and role
+        uuid_user = uuid.UUID(user_id)
+        uuid_role = uuid.UUID(role_id)
+
+        # Query the database for user and the role
+        user = User.query.get(uuid_user)
+        role = Role.query.get(uuid_role)
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        if not role:
+            return jsonify({'error': 'Role not found'}, 404)
+        
+        # Check if the role is already assigned
+        if role in user.roles:
+            return jsonify({'error': 'Role already assigned to user'}), 400
+        
+        # Assign the role to the user
+        user.roles.append(role)
+        db.session.commit()
+
+        return jsonify({'message': f'Role {role.name} assigned to user {user.username} successfully'}), 200
+    
+    except ValueError:
+        return jsonify({'error': 'Invalid ID format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def create_role():
+    data = request.get_json()
+    try:
+        role_data = RoleSchema().load(data)
+        new_role = Role(**role_data)
+        db.session.add(new_role)
+        db.session.commit()
+        # Serialize the user object using UserSchema
+        role_json = RoleSchema().dump(new_role)
+        return jsonify(role_json), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def get_roles():
+    roles = Role.query.all()
+    roles_json = RoleSchema(many=True).dump(roles)
+    return jsonify(roles_json), 200
+
+
+def update_role(role_id):
+    data = request.get_json()
+    try:
+        # Validate the role_id format (ensure it's a UUID)
+        uuid_obj = uuid.UUID(role_id)
+
+        # Query the database for the role
+        role = Role.query.get(uuid_obj)
+
+        if not role:
+            return jsonify({'error': 'Role not found'}), 404
+        role.name = data.get('name', role.name)
+        db.session.commit()
+        return RoleSchema().jsonify(role), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def delete_role(role_id):
+    try:
+       # Validate the role_id format (ensure it's a UUID)
+        uuid_obj = uuid.UUID(role_id)
+
+        # Query the database for the role
+        role = Role.query.get(uuid_obj)
+
+        if not role:
+            return jsonify({'error': 'Role not found'}), 404 
+        
+        # Delete the user
+        db.session.delete(role)
+        db.session.commit()
+
+        return jsonify({
+            'message': str("Role has been deleted")
+        }), 200
+
+    except ValueError:
+        # Handle invalid UUID format
+        db.session.rollback()
+        return jsonify({'error': 'Invalid role ID format'  }), 400
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
