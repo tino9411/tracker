@@ -1,5 +1,5 @@
 from flask import Blueprint
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from .controllers import create_user, get_user, update_user, delete_user, update_password, reset_password, logout, refresh, reset_password_with_token, login
 
 user = Blueprint('user', __name__)

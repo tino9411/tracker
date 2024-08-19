@@ -24,6 +24,8 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES', 900))
     app.config['JWT_REFRESH_TOKEN_EXPIRES'] = int(os.environ.get('JWT_REFRESH_TOKEN_EXPIRES', 604800))
+    app.config['JWT_TOKEN_LOCATION'] = ['cookies']  # Ensures tokens are looked for in cookies
+    app.config['JWT_COOKIE_CSRF_PROTECT'] = True  # Using CSRF protection with cookies
 
     # Flask-Mail configuration
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')

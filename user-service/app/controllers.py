@@ -3,7 +3,7 @@ from .models import User
 from .database import db
 from .schemas import UserSchema
 from .utils import hash_password, check_password, generate_reset_link, send_email
-from flask_jwt_extended import create_access_token, create_refresh_token, set_refresh_cookies, unset_jwt_cookies
+from flask_jwt_extended import create_access_token, create_refresh_token, set_refresh_cookies, unset_jwt_cookies, get_jwt_identity, set_access_cookies
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 import uuid
@@ -292,6 +292,7 @@ def login():
         response =  jsonify({
             'access_token': access_token
         })
+        set_access_cookies(response, access_token)
         set_refresh_cookies(response, refresh_token)
 
         return response, 200
