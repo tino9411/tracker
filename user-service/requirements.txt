@@ -4,3 +4,4 @@ psycopg2-binary
 marshmallow
 Flask-Mail
 python-dotenv
+Flask-JWT-Extended

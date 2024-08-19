@@ -3,6 +3,7 @@ from .models import User
 from .database import db
 from .schemas import UserSchema
 from .utils import hash_password, check_password, generate_reset_link, send_email
+from flask_jwt_extended import create_access_token, create_refresh_token, set_refresh_cookies, unset_jwt_cookies
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 import uuid
@@ -262,3 +263,50 @@ def reset_password_with_token():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+def login():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        if not email or not password:
+            return jsonify({
+                'error': 'Email and password are required'
+            }), 400
+        
+        # Query the database for the user
+        user = User.query.filter_by(email=email).first()
+
+        if not user or not check_password(user.password, password):
+            return jsonify({
+                'error': 'Invalid email or password'
+            }), 401
+        
+        # Create JWT tokens
+        access_token = create_access_token(identity=user.id)
+        refresh_token = create_refresh_token(identity=user.id)
+
+        # Return tokens
+        response =  jsonify({
+            'access_token': access_token
+        })
+        set_refresh_cookies(response, refresh_token)
+
+        return response, 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+def logout():
+    response = jsonify({"msg": "Successfully logged out"})
+    unset_jwt_cookies(response)  # Clear the refresh token cookie
+    return response, 200
+    
+
+def refresh():
+    current_user_id = get_jwt_identity()
+    new_access_token = create_access_token(identity=current_user_id)
+    return jsonify({'access_token': new_access_token}), 200

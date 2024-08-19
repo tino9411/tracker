@@ -1,14 +1,16 @@
 from dotenv import load_dotenv
 import os
 from flask import Flask
-# from flask_mail import Mail
+from flask_jwt_extended import JWTManager
 from .mail import mail_instance
 from .routes import user
 from .database import db
 
-# Initialize extensions
-# mail = Mail()
+
 load_dotenv()
+
+jwt = JWTManager()
+
 
 def create_app():
     app = Flask(__name__)
@@ -18,6 +20,10 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@postgres:5432/user_db'
     app.config['SQLALCHEMY_TRACK_NOTIFICATIONS'] = False
 
+    # JWT Configuration
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES', 900))
+    app.config['JWT_REFRESH_TOKEN_EXPIRES'] = int(os.environ.get('JWT_REFRESH_TOKEN_EXPIRES', 604800))
 
     # Flask-Mail configuration
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
@@ -30,6 +36,7 @@ def create_app():
     # Initialize extensions with the app instance
     db.init_app(app)
     mail_instance.init_app(app)
+    jwt.init_app(app)
 
 
     with app.app_context():
