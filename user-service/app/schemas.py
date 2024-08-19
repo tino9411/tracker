@@ -30,4 +30,5 @@ class UserSchema(Schema):
     last_login_time = fields.DateTime(dump_only=True)  # Read-only, will be updated on login
     reset_token = fields.String(dump_only=True)
     token_expiry = fields.DateTime(dump_only=True)
+    isActive = fields.Boolean(dump_only=True)
 

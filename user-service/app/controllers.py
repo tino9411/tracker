@@ -284,6 +284,11 @@ def login():
                 'error': 'Invalid email or password'
             }), 401
         
+        if not user.isActive:
+            # Automatically reactivate the user during login
+            user.isActive = True
+            db.session.commit()
+        
         # Create JWT tokens
         access_token = create_access_token(identity=user.id)
         refresh_token = create_refresh_token(identity=user.id)
@@ -311,3 +316,60 @@ def refresh():
     current_user_id = get_jwt_identity()
     new_access_token = create_access_token(identity=current_user_id)
     return jsonify({'access_token': new_access_token}), 200
+
+
+def deactivate(user_id):
+    try:
+        # Validate the UUID format
+        uuid_obj = uuid.UUID(user_id)
+
+        # Query the database for the user
+        user = User.query.get(uuid_obj)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if not user.isActive:
+            return jsonify({'error': 'User is already deactivated'}), 400
+        
+        # Deactivate the user
+        user.isActive = False
+        db.session.commit()
+
+        # Serialize and return the updated user
+        updated_user = UserSchema().dump(user)
+        return jsonify(updated_user), 200
+
+    except ValueError:
+        # Handle invalid UUID format
+        return jsonify({'error': 'Invalid user ID format'}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+    
+
+def reactivate(user_id):
+    try:
+        # Validate the UUID format
+        uuid_obj = uuid.UUID(user_id)
+        # Query the database for the user
+        user = User.query.get(uuid_obj)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if user.isActive:
+            return jsonify({'error': 'User is already activated'}), 400
+        
+        # Reactivate the user
+        user.isActive = True
+        db.session.commit()
+
+        # Serialize and return the updated user
+        updated_user = UserSchema().dump(user)
+        return jsonify(updated_user), 200
+
+    except ValueError:
+        # Handle invalid UUID format
+        return jsonify({'error': 'Invalid user ID format'}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

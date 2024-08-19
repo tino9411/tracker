@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
 from .mail import mail_instance
 from .routes import user
 from .database import db
@@ -37,6 +38,7 @@ def create_app():
 
     # Initialize extensions with the app instance
     db.init_app(app)
+    migrate = Migrate(app, db)
     mail_instance.init_app(app)
     jwt.init_app(app)
 

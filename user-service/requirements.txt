@@ -5,3 +5,4 @@ marshmallow
 Flask-Mail
 python-dotenv
 Flask-JWT-Extended
+Flask-Migrate

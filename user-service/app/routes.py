@@ -1,6 +1,6 @@
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
-from .controllers import create_user, get_user, update_user, delete_user, update_password, reset_password, logout, refresh, reset_password_with_token, login
+from .controllers import  create_user, get_user, update_user, delete_user, update_password, reset_password, logout, refresh, reset_password_with_token, login, deactivate, reactivate
 
 user = Blueprint('user', __name__)
 
@@ -59,3 +59,15 @@ def logout_route():
 @jwt_required(refresh=True)
 def refresh_route():
     return refresh()
+
+
+@user.route('/users/<user_id>/deactivate', methods=['PATCH'])
+@jwt_required()
+def deactivate_route(user_id):
+    return deactivate(user_id)
+
+
+@user.route('/users/<user_id>/reactivate', methods=['PATCH'])
+@jwt_required()
+def reactivate_route(user_id):
+    return reactivate(user_id)
