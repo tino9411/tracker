@@ -19,7 +19,7 @@ def validate_password(password):
 class UserSchema(Schema):
     id = fields.UUID(dump_only=True)  # UUID will be generated automatically, so it's read-only
     username = fields.String(required=True, validate=validate.Length(min=1, max=50))
-    email = fields.String(required=True)
+    email = fields.Email(required=True, validate=validate.Email(error="Invalid email format."))
     password = fields.String(required=True, validate=validate.And(
         validate.Length(min=8),
         validate_password
