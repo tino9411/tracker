@@ -1,13 +1,13 @@
 from dotenv import load_dotenv
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_mail import Mail
+# from flask_mail import Mail
+from .mail import mail_instance
 from .routes import user
 from .database import db
 
 # Initialize extensions
-mail = Mail()
+# mail = Mail()
 load_dotenv()
 
 def create_app():
@@ -29,7 +29,7 @@ def create_app():
 
     # Initialize extensions with the app instance
     db.init_app(app)
-    mail.init_app(app)
+    mail_instance.init_app(app)
 
 
     with app.app_context():

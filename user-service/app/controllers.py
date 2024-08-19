@@ -2,7 +2,7 @@ from flask import jsonify, request
 from .models import User
 from .database import db
 from .schemas import UserSchema
-from .utils import hash_password, check_password
+from .utils import hash_password, check_password, generate_reset_link, send_email
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 import uuid
@@ -199,8 +199,17 @@ def reset_password():
         user.token_expiry = token_expiry
         db.session.commit()
 
-        # TODO: Send email to the user with the reset token (e.g., as a query parameter in a reset link)
-        # Example: send_reset_email(user.email, reset_token)
+        # Generate reset link to send to user's email
+        reset_link = generate_reset_link(user)
+        email_sent = send_email(
+            subject="Password Reset Request",
+            recipients=[user.email],
+            body=f"To reset your password, click the following link: {reset_link}\n\n"
+                 f"If you did not request this, please ignore this email."
+        )
+
+        if not email_sent:
+            return jsonify({'error': 'Failed to send email'}), 500
 
         return jsonify({
                 'message': 'Password reset email sent'
@@ -229,7 +238,6 @@ def reset_password_with_token():
         if not user:
             return jsonify({
                 'error': 'Invalid or expired token'}), 400
-        
         # Convert the naive token_expiry to a timezone-aware datetime
         if user.token_expiry.tzinfo is None:
             user.token_expiry = user.token_expiry.replace(tzinfo=timezone.utc)
