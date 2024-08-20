@@ -1,7 +1,7 @@
 from quart import request, jsonify
 from flask_mail import Message
 from .mail import mail_instance
-from .models import User
+from .models import User, Role
 from quart_jwt_extended import get_jwt_identity
 from werkzeug.security import check_password_hash, generate_password_hash
 import logging
@@ -12,23 +12,25 @@ from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from .database import async_session
 
-async def check_user_role(required_role):
+async def check_user_role(user_id, role_name, session):
     """
-    Checks if the current user has the required role.
+    Check if a user has a specific role.
 
-    :param required_role: The name of the role to check (e.g., 'admin').
-    :return: True if the user has the role, False otherwise.
+    Args:
+        user_id (str): The UUID of the user to check.
+        role_name (str): The name of the role to check for.
+        session (AsyncSession): The database session to use for queries.
+
+    Returns:
+        bool: True if the user has the role, False otherwise.
     """
-    current_user_id = await get_jwt_identity()
-
-    async with async_session() as session:
-        result = await session.execute(select(User).filter_by(id=current_user_id))
-        user = result.scalars().first()
-
-    if not user:
-        return False
-
-    return user.has_role(required_role)
+    result = await session.execute(
+        select(User).
+        filter(User.id == user_id).
+        filter(User.roles.any(Role.name == role_name))
+    )
+    user = result.scalars().first()
+    return user is not None
 
 
 def hash_password(password):
@@ -152,8 +154,7 @@ def handle_exceptions(func):
             return await func(*args, **kwargs)
         except ValidationError as err:
             return api_response(message=err.messages, status_code=400)
-        except IntegrityError:
-            return api_response(message='Username or email already exists', status_code=400)
         except Exception as e:
-            return api_response(message=str(e), status_code=500)
+            print(f"Unhandled exception in {func.__name__}: {str(e)}")
+            return api_response(message='An unexpected error occurred', status_code=500)
     return wrapper

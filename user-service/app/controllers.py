@@ -1,6 +1,6 @@
 from sqlalchemy.future import select
 from quart import jsonify, request
-from .models import User, Role
+from .models import User, Role, user_roles
 from .database import get_db_session
 from .schemas import UserSchema, RoleSchema
 from .utils import (hash_password, check_password, generate_reset_link, 
@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from quart_rate_limiter import rate_limit
 import secrets as secrets
+from .kafka import get_kafka_producer
+import json
 
 
 @handle_exceptions
@@ -50,6 +52,13 @@ async def create_user():
         await session.commit()
         # Serialize the user object using UserSchema
         user_json = UserSchema().dump(new_user)
+        producer = get_kafka_producer()
+        message = {
+            "user_id": str(new_user.id),  # Include the user's ID
+            "status": "user_created"
+        } 
+        producer.send('user-events', value=message)
+        producer.flush()
         return api_response(data=user_json, message='User created successfully', status_code=201)
 
 
@@ -75,6 +84,11 @@ async def get_user(user_id):
         return error_response
     # Serialize the user data using Marshmallow
     user_data = UserSchema().dump(user)
+
+    producer = get_kafka_producer()
+    message = {"user_id": user_id, "status": "user_fetched"}
+    producer.send('user-events', value=message)
+    producer.flush()
     return api_response(data=user_data, message='User retrieved successfully', status_code=201)
    
 
@@ -91,25 +105,90 @@ async def update_user(user_id):
         session.add(user)
         await session.commit()
         updated_user = UserSchema().dump(user)
+
+        producer = get_kafka_producer()
+        message = {"user_id": user_id, "status": "user_updated"}
+        producer.send('user-events', value=message)
+        producer.flush()
+        
         return api_response(data=updated_user, message='User updated successfully')
 
 
 @handle_exceptions
 async def delete_user(user_id):
+    """
+    Delete a user from the system.
+
+    This function handles the deletion of a user account. It performs the following steps:
+    1. Retrieves the user based on the provided user_id.
+    2. Checks if the current user has permission to delete the account (either their own or as an admin).
+    3. Deletes the user from the database if permissions are valid.
+    4. Sends a Kafka message to notify about the user deletion.
+
+    Args:
+        user_id (str): The UUID of the user to be deleted.
+
+    Returns:
+        dict: A JSON response containing:
+            - message (str): A description of the action taken.
+            - status_code (int): HTTP status code (200 for success, 403 for forbidden, 404 for not found).
+
+    Raises:
+        Exception: Any unexpected errors during the deletion process.
+
+    Notes:
+        - This function requires a valid JWT token in the request for authentication.
+        - Only the user themselves or an admin can delete a user account.
+        - If the user deletes their own account, their session will be invalidated.
+
+    Example:
+        Response for successful deletion:
+        {
+            "message": "User has been deleted",
+            "status_code": 200
+        }
+
+        Response for unauthorized deletion attempt:
+        {
+            "message": "You do not have permission to delete other users",
+            "status_code": 403
+        }
+    """
     user, error_response = await get_user_by_uuid(user_id)
     if error_response:
         return error_response
-    current_user_id = await get_jwt_identity()
+    
+    current_user_id = get_jwt_identity()
+    
     async for session in get_db_session():
-        if str(current_user_id) == user_id:
+        try:
+            # Check if the current user is the user being deleted or an admin
+            if str(current_user_id) != str(user_id):
+                is_admin = await check_user_role(current_user_id, 'admin', session)
+                if not is_admin:
+                    return api_response(message='You do not have permission to delete other users', status_code=403)
+            
+            # First, remove all role associations
+            await session.execute(user_roles.delete().where(user_roles.c.user_id == user.id))
+            
+            # Then, delete the user
             await session.delete(user)
             await session.commit()
-            return api_response(message='Your account has been deleted')
-        if not await check_user_role('admin'):
-            return api_response(message='You do not have permission to delete other users', status_code=403)
-        await session.delete(user)
-        await session.commit()
-        return api_response(message='User has been deleted')
+
+            producer = get_kafka_producer()
+            message = {"user_id": user_id, "status": "deleted"}
+            producer.send('user-events', value=message)
+            producer.flush()
+            
+            if str(current_user_id) == str(user_id):
+                return api_response(message='Your account has been deleted')
+            else:
+                return api_response(message='User has been deleted')
+    
+        except Exception as e:
+            await session.rollback()
+            print(f"Unexpected error during user deletion: {str(e)}")
+            return api_response(message='An unexpected error occurred', status_code=500)
 
 
 @handle_exceptions
@@ -150,7 +229,10 @@ async def update_password(user_id):
         await session.commit()
 
         # TODO: Invalidate active session
-
+    producer = get_kafka_producer()
+    message = {"user_id": user_id, "status": "password_updated"}
+    producer.send('user-events', value=message)
+    producer.flush()
     return api_response(message='Password updated successfully')
 
 
@@ -338,7 +420,13 @@ async def deactivate(user_id):
         await session.commit()
 
         updated_user = UserSchema().dump(user)
-        return api_response(data=updated_user, message='User deactivated successfully')
+    
+    producer = get_kafka_producer()
+    message = {"user_id": user_id, "status": "user_deactivated"}
+    producer.send('user-events', value=message)
+    producer.flush()
+
+    return api_response(data=updated_user, message='User deactivated successfully')
     
     
 @handle_exceptions
@@ -368,6 +456,12 @@ async def reactivate(user_id):
         await session.commit()
 
         updated_user = UserSchema().dump(user)
+
+        producer = get_kafka_producer()
+        message = {"user_id": user_id, "status": "user_reactivated"}
+        producer.send('user-events', value=message)
+        producer.flush()
+
         return api_response(data=updated_user, message='User reactivated successfully')
 
 
@@ -411,7 +505,6 @@ async def assign_role_to_user(user_id, role_id):
         user.roles.append(role)
         session.add(user)
         await session.commit()
-
         return api_response(message=f'Role {role.name} assigned to user {user.username} successfully')
 
 

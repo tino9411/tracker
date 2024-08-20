@@ -9,3 +9,4 @@ alembic
 quart_rate_limiter
 pytest
 pytest-asyncio
+kafka-python

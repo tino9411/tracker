@@ -18,6 +18,28 @@ services:
       timeout: 5s
       retries: 5
 
+  zookeeper:
+    image: wurstmeister/zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+     
+  kafka:
+    image: wurstmeister/kafka:2.13-2.8.1
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zookeeper
+
   user-service:
     build: ./user-service
     command: >
@@ -28,18 +50,13 @@ services:
       QUART_ENV: production
       SECRET_KEY: your_secret_key
       JWT_SECRET_KEY: your_jwt_secret_key
+      KAFKA_BROKER_URL: kafka:9092
     ports:
       - "5100:5100"
     depends_on:
       postgres:
         condition: service_healthy
-    
-  test:
-    build: ./user-service
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/user_db
-    depends_on:
-      - postgres
+  
 
 volumes:
   postgres_data:
