@@ -505,6 +505,14 @@ async def assign_role_to_user(user_id, role_id):
         user.roles.append(role)
         session.add(user)
         await session.commit()
+        producer = get_kafka_producer()
+        message = {
+            "user_id": user_id,  # Include the user's ID
+            "status": "user_assigned_to_role",
+            "role_id": role_id
+        } 
+        producer.send('user-events', value=message)
+        producer.flush()
         return api_response(message=f'Role {role.name} assigned to user {user.username} successfully')
 
 
