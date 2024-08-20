@@ -1,30 +1,31 @@
-from werkzeug.security import check_password_hash, generate_password_hash
-from flask import request, jsonify
+from quart import request, jsonify
 from flask_mail import Message
 from .mail import mail_instance
 from .models import User
-from flask_jwt_extended import get_jwt_identity
+from quart_jwt_extended import get_jwt_identity
+from werkzeug.security import check_password_hash, generate_password_hash
 import logging
 import uuid
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from .database import async_session
 
-def check_user_role(required_role):
+async def check_user_role(required_role):
     """
     Checks if the current user has the required role.
 
     :param required_role: The name of the role to check (e.g., 'admin').
     :return: True if the user has the role, False otherwise.
     """
+    current_user_id = await get_jwt_identity()
 
-    # Get the ID of the current user from the JWT token
-    current_user_id = get_jwt_identity()
-
-    # Query the database for the current user
-    user = User.query.get(current_user_id)
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(id=current_user_id))
+        user = result.scalars().first()
 
     if not user:
         return False
 
-    # Check if the user has the required role
     return user.has_role(required_role)
 
 
@@ -62,7 +63,7 @@ def check_password(hashed_password, current_password):
     return check_password_hash(hashed_password, current_password)
 
 
-def generate_reset_link(user):
+async def generate_reset_link(user):
     """
     Generates a password reset link for the given user.
 
@@ -87,7 +88,7 @@ def generate_reset_link(user):
     return f"{base_url}/reset_password?token={user.reset_token}"
 
 
-def send_email(subject, recipients, body):
+async def send_email(subject, recipients, body):
     """
     Sends an email using the Flask-Mail extension.
 
@@ -101,7 +102,7 @@ def send_email(subject, recipients, body):
             recipients=recipients,
             body=body
         )
-        mail_instance.send(msg)
+        await mail_instance.send(msg)
         logging.info(f"Email sent successfully to {recipients}")
         return True
     except Exception as e:
@@ -110,7 +111,7 @@ def send_email(subject, recipients, body):
         return False
     
 
-def get_user_by_uuid(user_id):
+async def get_user_by_uuid(user_id):
     """
     Validate UUID, query the user, and check if the user exists.
     
@@ -118,13 +119,14 @@ def get_user_by_uuid(user_id):
     :return: Tuple of (user, error_response)
     """
     try:
-        # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
     except ValueError:
         return None, jsonify({'error': 'Invalid user ID format'}), 400
-    
-    # Query the databse for the use
-    user = User.query.get(uuid_obj)
+
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(id=uuid_obj))
+        user = result.scalars().first()
+
     if not user:
         return None, jsonify({'error': 'User not found'}), 404
     

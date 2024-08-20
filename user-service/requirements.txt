@@ -1,8 +1,8 @@
-flask
-Flask_sqlalchemy
-psycopg2-binary
+quart
+quart-sqlalchemy
+asyncpg
 marshmallow
 Flask-Mail
 python-dotenv
-Flask-JWT-Extended
-Flask-Migrate
+quart-jwt-extended
+alembic

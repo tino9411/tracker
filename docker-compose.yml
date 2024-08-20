@@ -9,19 +9,30 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   user-service:
     build: ./user-service
-    command: flask run --host=0.0.0.0
+    command: >
+      sh -c "sleep 10 && quart run --host=0.0.0.0 --port=5100"
     environment:
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/user_db
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/user_db
+      QUART_APP: app:create_app
+      QUART_ENV: production
+      SECRET_KEY: your_secret_key
+      JWT_SECRET_KEY: your_jwt_secret_key
     ports:
       - "5100:5100"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
