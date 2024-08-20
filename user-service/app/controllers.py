@@ -176,7 +176,7 @@ async def delete_user(user_id):
             await session.commit()
 
             producer = get_kafka_producer()
-            message = {"user_id": user_id, "status": "deleted"}
+            message = {"user_id": user_id, "status": "user_deleted"}
             producer.send('user-events', value=message)
             producer.flush()
             
