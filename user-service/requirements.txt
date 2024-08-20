@@ -7,3 +7,5 @@ python-dotenv
 quart-jwt-extended
 alembic
 quart_rate_limiter
+pytest
+pytest-asyncio

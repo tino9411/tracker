@@ -33,6 +33,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    
+  test:
+    build: ./user-service
+    command: pytest
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/user_db
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:
