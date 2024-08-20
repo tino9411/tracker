@@ -12,6 +12,17 @@ from datetime import datetime, timezone, timedelta
 
 
 def create_user():
+    """
+    Create a new user and assign the default "user" role.
+
+    - Validates the input data using Marshmallow.
+    - Hashes the user's password.
+    - Assigns the "user" role to the new user.
+    - Saves the user in the database.
+
+    Returns:
+        JSON response containing the created user or an error message.
+    """
     data = request.get_json()
 
     # Validate and deserialize input
@@ -54,6 +65,19 @@ def create_user():
 
 
 def get_user(user_id):
+    """
+    Retrieve a user by their ID.
+
+    - Validates the user ID format.
+    - Queries the database for the user.
+    - Returns the user data if found, or a 404 error if not found.
+
+    Args:
+        user_id (str): The UUID of the user.
+
+    Returns:
+        JSON response containing the user data or an error message.
+    """
     try:
         # Validate the user_id format (ensure it's a UUID)
         uuid_obj = uuid.UUID(user_id)
@@ -81,6 +105,19 @@ def get_user(user_id):
 
 
 def update_user(user_id):
+    """
+    Update a user's information.
+
+    - Validates the user ID format.
+    - Validates and deserializes input data for partial updates.
+    - Updates the user's information in the database.
+
+    Args:
+        user_id (str): The UUID of the user.
+
+    Returns:
+        JSON response containing the updated user data or an error message.
+    """
     try:
         # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
@@ -121,6 +158,19 @@ def update_user(user_id):
 
 
 def delete_user(user_id):
+    """
+    Delete a user from the system.
+
+    - Validates the user ID format.
+    - Allows users to delete their own accounts.
+    - Allows admins to delete other users' accounts.
+
+    Args:
+        user_id (str): The UUID of the user.
+
+    Returns:
+        JSON response indicating the success or failure of the deletion.
+    """
     try:
         # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
@@ -162,6 +212,19 @@ def delete_user(user_id):
 
 
 def update_password(user_id):
+    """
+    Update a user's password.
+
+    - Validates the user ID format.
+    - Checks the current password.
+    - Hashes the new password and updates it in the database.
+
+    Args:
+        user_id (str): The UUID of the user.
+
+    Returns:
+        JSON response indicating the success or failure of the password update.
+    """
     try:
         # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
@@ -203,6 +266,15 @@ def update_password(user_id):
 
 
 def reset_password():
+    """
+    Initiate the password reset process.
+
+    - Validates the user's email.
+    - Generates a reset token and sends it via email.
+
+    Returns:
+        JSON response indicating the success or failure of the reset request.
+    """
     try:
         data = request.get_json()
         email = data.get('email')
@@ -247,6 +319,15 @@ def reset_password():
 
 
 def reset_password_with_token():
+    """
+    Reset a user's password using a reset token.
+
+    - Validates the reset token and new password.
+    - Updates the user's password if the token is valid and not expired.
+
+    Returns:
+        JSON response indicating the success or failure of the password reset.
+    """
     try:
         data = request.get_json()
         reset_token = data.get('token')
@@ -290,6 +371,16 @@ def reset_password_with_token():
 
 
 def login():
+    """
+    Authenticate a user and return JWT tokens.
+
+    - Validates the user's email and password.
+    - Reactivates the user if they were deactivated.
+    - Generates and returns JWT access and refresh tokens.
+
+    Returns:
+        JSON response containing the JWT tokens or an error message.
+    """
     try:
         data = request.get_json()
         email = data.get('email')
@@ -331,18 +422,46 @@ def login():
     
 
 def logout():
+    """
+    Log out the current user.
+
+    - Clears the JWT cookies.
+
+    Returns:
+        JSON response indicating the success of the logout.
+    """
     response = jsonify({"msg": "Successfully logged out"})
     unset_jwt_cookies(response)  # Clear the refresh token cookie
     return response, 200
     
 
 def refresh():
+    """
+    Refresh the JWT access token.
+
+    - Generates a new access token using the current refresh token.
+
+    Returns:
+        JSON response containing the new access token.
+    """
     current_user_id = get_jwt_identity()
     new_access_token = create_access_token(identity=current_user_id)
     return jsonify({'access_token': new_access_token}), 200
 
 
 def deactivate(user_id):
+    """
+    Deactivate a user's account.
+
+    - Validates the user ID format.
+    - Deactivates the user's account if it is not already deactivated.
+
+    Args:
+        user_id (str): The UUID of the user.
+
+    Returns:
+        JSON response containing the updated user data or an error message.
+    """
     try:
         # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
@@ -372,6 +491,18 @@ def deactivate(user_id):
     
 
 def reactivate(user_id):
+    """
+    Reactivate a user's account.
+
+    - Validates the user ID format.
+    - Reactivates the user's account if it is not already activated.
+
+    Args:
+        user_id (str): The UUID of the user.
+
+    Returns:
+        JSON response containing the updated user data or an error message.
+    """
     try:
         # Validate the UUID format
         uuid_obj = uuid.UUID(user_id)
@@ -400,6 +531,19 @@ def reactivate(user_id):
 
 
 def assign_role_to_user(user_id, role_id):
+    """
+    Assign a role to a user.
+
+    - Validates the UUID format for user and role.
+    - Assigns the specified role to the user if not already assigned.
+
+    Args:
+        user_id (str): The UUID of the user.
+        role_id (str): The UUID of the role.
+
+    Returns:
+        JSON response indicating the success or failure of the role assignment.
+    """
     try:
         # Validate the UUID format for user and role
         uuid_user = uuid.UUID(user_id)
@@ -432,6 +576,15 @@ def assign_role_to_user(user_id, role_id):
 
 
 def create_role():
+    """
+    Create a new role.
+
+    - Validates and deserializes input data.
+    - Saves the new role in the database.
+
+    Returns:
+        JSON response containing the created role or an error message.
+    """
     data = request.get_json()
     try:
         role_data = RoleSchema().load(data)
@@ -447,12 +600,32 @@ def create_role():
 
 
 def get_roles():
+    """
+    Retrieve all roles.
+
+    - Queries the database for all roles.
+
+    Returns:
+        JSON response containing the list of roles.
+    """
     roles = Role.query.all()
     roles_json = RoleSchema(many=True).dump(roles)
     return jsonify(roles_json), 200
 
 
 def update_role(role_id):
+    """
+    Update a role's name.
+
+    - Validates the role ID format.
+    - Updates the role's name in the database.
+
+    Args:
+        role_id (str): The UUID of the role.
+
+    Returns:
+        JSON response containing the updated role data or an error message.
+    """
     data = request.get_json()
     try:
         # Validate the role_id format (ensure it's a UUID)
@@ -472,6 +645,18 @@ def update_role(role_id):
 
 
 def delete_role(role_id):
+    """
+    Delete a role from the system.
+
+    - Validates the role ID format.
+    - Deletes the role from the database.
+
+    Args:
+        role_id (str): The UUID of the role.
+
+    Returns:
+        JSON response indicating the success or failure of the deletion.
+    """
     try:
        # Validate the role_id format (ensure it's a UUID)
         uuid_obj = uuid.UUID(role_id)

@@ -28,7 +28,6 @@ def check_user_role(required_role):
     return user.has_role(required_role)
 
 
-
 def hash_password(password):
     """
     Hashes a plain text password using the PBKDF2 algorithm with SHA-256.
