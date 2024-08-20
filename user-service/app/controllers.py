@@ -508,7 +508,7 @@ async def assign_role_to_user(user_id, role_id):
         producer = get_kafka_producer()
         message = {
             "user_id": user_id,  # Include the user's ID
-            "status": "user_assigned_to_role",
+            "status": "role_assigned_to_user",
             "role_id": role_id
         } 
         producer.send('user-events', value=message)
