@@ -36,7 +36,6 @@ services:
     
   test:
     build: ./user-service
-    command: pytest
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/user_db
     depends_on:
