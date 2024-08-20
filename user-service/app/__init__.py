@@ -2,6 +2,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from quart import Quart
+from quart_rate_limiter import RateLimiter
 from quart_jwt_extended import JWTManager
 from .mail import mail_instance
 from .routes import user
@@ -18,6 +19,8 @@ jwt = JWTManager()
 
 def create_app():
     app = Quart(__name__)
+    RateLimiter(app)
+
 
     # Load configuration from environment variables
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')

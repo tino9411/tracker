@@ -9,6 +9,7 @@ from .controllers import (
 
 user = Blueprint('user', __name__)
 
+
 @user.route('/users', methods=['POST'])
 async def create_user_route():
     return await create_user()
