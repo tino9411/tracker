@@ -1,11 +1,11 @@
 from werkzeug.security import check_password_hash, generate_password_hash
-from flask import request
+from flask import request, jsonify
 from flask_mail import Message
 from .mail import mail_instance
 from .models import User
 from flask_jwt_extended import get_jwt_identity
 import logging
-
+import uuid
 
 def check_user_role(required_role):
     """
@@ -108,3 +108,24 @@ def send_email(subject, recipients, body):
         # Log the exception or handle it as needed
         logging.error(f"Failed to send email: {e}")
         return False
+    
+
+def get_user_by_uuid(user_id):
+    """
+    Validate UUID, query the user, and check if the user exists.
+    
+    :param user_id: The UUID of the user.
+    :return: Tuple of (user, error_response)
+    """
+    try:
+        # Validate the UUID format
+        uuid_obj = uuid.UUID(user_id)
+    except ValueError:
+        return None, jsonify({'error': 'Invalid user ID format'}), 400
+    
+    # Query the databse for the use
+    user = User.query.get(uuid_obj)
+    if not user:
+        return None, jsonify({'error': 'User not found'}), 404
+    
+    return user, None
