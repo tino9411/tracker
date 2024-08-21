@@ -14,8 +14,10 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from quart_rate_limiter import rate_limit
 import secrets as secrets
-from .kafka import send_kafka_message, start_kafka_producer, stop_kafka_producer
+from .kafka import (send_kafka_message, start_kafka_producer, 
+                    stop_kafka_producer)
 import logging
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
