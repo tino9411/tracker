@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def create_user():
     """
     Create a new user and assign the default "user" role.
@@ -77,7 +78,9 @@ async def create_user():
         return api_response(data=user_json, message='User created successfully', status_code=201)
 
 
+
 @handle_exceptions
+@rate_limit(30, timedelta(minutes=1))
 async def get_user(user_id):
     """
     Retrieve a user by their ID.
@@ -117,7 +120,9 @@ async def get_user(user_id):
     return api_response(data=user_data, message='User retrieved successfully', status_code=200)
    
 
+
 @handle_exceptions
+@rate_limit(10, timedelta(minutes=1))
 async def update_user(user_id):
     user, error_response = await get_user_by_uuid(user_id)
     if error_response:
@@ -151,7 +156,9 @@ async def update_user(user_id):
         return api_response(data=updated_user, message='User updated successfully')
 
 
+
 @handle_exceptions
+@rate_limit(3, timedelta(minutes=1))
 async def delete_user(user_id):
     """
     Delete a user from the system.
@@ -236,7 +243,9 @@ async def delete_user(user_id):
             return api_response(message='An unexpected error occurred', status_code=500)
 
 
+
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def update_password(user_id):
     """
     Update a user's password.
@@ -338,6 +347,7 @@ async def reset_password():
 
 
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def reset_password_with_token():
     """
     Reset a user's password using a reset token.
@@ -382,7 +392,7 @@ async def reset_password_with_token():
 
 
 @handle_exceptions
-@rate_limit(1, timedelta(seconds=10))  # Limit to 1 request per 10 seconds
+@rate_limit(10, timedelta(minutes=1))  # Limit to 1 request per 10 seconds
 async def login():
     """
     Authenticate a user and return JWT tokens.
@@ -439,6 +449,7 @@ async def login():
     
 
 @handle_exceptions
+@rate_limit(30, timedelta(minutes=1))
 async def logout():
     """
     Log out the current user.
@@ -472,6 +483,7 @@ async def logout():
     
 
 @handle_exceptions
+@rate_limit(15, timedelta(minutes=1))
 async def refresh():
     """
     Refresh the JWT access token.
@@ -487,6 +499,7 @@ async def refresh():
 
 
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def deactivate(user_id):
     """
     Deactivate a user's account.
@@ -530,6 +543,7 @@ async def deactivate(user_id):
     
     
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def reactivate(user_id):
     """
     Reactivate a user's account.
@@ -573,6 +587,7 @@ async def reactivate(user_id):
 
 
 @handle_exceptions
+@rate_limit(10, timedelta(minutes=1))
 async def assign_role_to_user(user_id, role_id):
     """
     Assign a role to a user.
@@ -629,6 +644,7 @@ async def assign_role_to_user(user_id, role_id):
 
 
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def create_role():
     """
     Create a new role.
@@ -652,6 +668,7 @@ async def create_role():
 
 
 @handle_exceptions
+@rate_limit(30, timedelta(minutes=1))
 async def get_roles():
     """
     Retrieve all roles.
@@ -670,6 +687,7 @@ async def get_roles():
 
 
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def update_role(role_id):
     """
     Update a role's name.
@@ -704,6 +722,7 @@ async def update_role(role_id):
 
 
 @handle_exceptions
+@rate_limit(5, timedelta(minutes=1))
 async def delete_role(role_id):
     """
     Delete a role from the system.
