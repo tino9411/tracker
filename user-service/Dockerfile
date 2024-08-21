@@ -16,11 +16,14 @@ COPY . .
 # Make port 5100 available to the world outside this container
 EXPOSE 5100
 
+# Set the PYTHONPATH
+ENV PYTHONPATH=/app
+
 # Define environment variables
 ENV QUART_APP=app:create_app
-ENV QUART_ENV=development
+ENV QUART_ENV=production
 ENV QUART_RUN_HOST=0.0.0.0
 ENV QUART_RUN_PORT=5100
 
 # Run the application
-CMD ["quart", "run", "--host=0.0.0.0", "--port=5100"]
+CMD ["python", "run.py"]

@@ -12,21 +12,24 @@ from .default_roles import create_default_roles
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 load_dotenv()
-
 jwt = JWTManager()
 
-def create_app():
+async def create_app(testing=False):
     app = Quart(__name__)
     RateLimiter(app)
 
+    @app.route('/')
+    async def root():
+        return {"status": "OK"}, 200
 
     # Load configuration from environment variables
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-    app.config['SQLALCHEMY_TRACK_NOTIFICATIONS'] = False
-
+    if testing or os.getenv('TESTING'):
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('TEST_DATABASE_URL', 'postgresql+asyncpg://postgres:password@postgres_test:5432/test_user_db')
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     logger.info(f"Database URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     # JWT Configuration
@@ -52,24 +55,19 @@ def create_app():
     @app.before_serving
     async def startup():
         logger.info("Starting up the application")
-        async with app.app_context():
-            try:
-                logger.info("Attempting to create database tables")
-                async with engine.begin() as conn:
-                    await conn.run_sync(Base.metadata.create_all)
-                logger.info("Database tables created successfully")
-                
-                logger.info("Creating default roles")
-                async with async_session() as session:
-                    await create_default_roles(session)
-                logger.info("Default roles created successfully")
-            except Exception as e:
-                logger.error(f"Error during startup: {str(e)}")
-                raise
+        try:
+            logger.info("Attempting to create database tables")
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database tables created successfully")
+            
+            logger.info("Creating default roles")
+            async with async_session() as session:
+                await create_default_roles(session)
+            logger.info("Default roles created successfully")
+        except Exception as e:
+            logger.error(f"Error during startup: {str(e)}")
+            raise
 
-    # Register the startup task to run when the app starts
-    app.before_serving(startup)
-    
     app.register_blueprint(user, url_prefix='/api')
-
     return app

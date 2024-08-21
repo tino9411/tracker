@@ -11,8 +11,8 @@ def validate_password(password):
     if not re.search("[0-9]", password):
         raise ValidationError("Password must contain at least one digit")
     if not re.search("[!@#$%^&*(),.?\":{}|<>]", password):
-        raise ValidationError("Password must contain at least one speicial character")
-    if re.search("\s", password):
+        raise ValidationError("Password must contain at least one special character")
+    if re.search(r"\s", password):
         raise ValidationError("Password must not contain spaces")
 
 class RoleSchema(Schema):

@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from marshmallow import ValidationError
 from .database import async_session
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 
 async def check_user_role(user_id, role_name, session):
     """
@@ -155,6 +160,6 @@ def handle_exceptions(func):
         except ValidationError as err:
             return api_response(message=err.messages, status_code=400)
         except Exception as e:
-            print(f"Unhandled exception in {func.__name__}: {str(e)}")
-            return api_response(message='An unexpected error occurred', status_code=500)
+            logger.error(f"Unhandled exception in {func.__name__}: {str(e)}", exc_info=True)
+            return api_response(message=str(e), status_code=500)
     return wrapper

@@ -2,13 +2,18 @@ import os
 import logging
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
+from contextlib import asynccontextmanager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Get the DATABASE_URL from environment variables
-database_url = os.environ.get('DATABASE_URL')
+if os.getenv('TESTING'):
+    database_url = os.environ.get('TEST_DATABASE_URL', 'postgresql+asyncpg://postgres:password@postgres_test:5432/test_user_db')
+else:
+    database_url = os.environ.get('DATABASE_URL')
+
 logger.info(f"Connecting to database: {database_url}")
 
 # Create the async engine
@@ -31,6 +36,7 @@ async_session = sessionmaker(
 Base = declarative_base()
 
 # Dependency injection for db session
+@asynccontextmanager
 async def get_db_session():
     async with async_session() as session:
         try:

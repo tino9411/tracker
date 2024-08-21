@@ -12,8 +12,12 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from quart_rate_limiter import rate_limit
 import secrets as secrets
-from .kafka import get_kafka_producer
-import json
+from .kafka import send_kafka_message, start_kafka_producer, stop_kafka_producer
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @handle_exceptions
@@ -39,7 +43,7 @@ async def create_user():
     user_data['password'] = hash_password(data['password'])
     # Create a new User instance
     new_user = User(**user_data)
-    async for session in get_db_session():
+    async with get_db_session() as session:
         # Query the "user" role from the database
         result = await session.execute(select(Role).filter_by(name='user'))
         user_role = result.scalars().first()
@@ -52,13 +56,24 @@ async def create_user():
         await session.commit()
         # Serialize the user object using UserSchema
         user_json = UserSchema().dump(new_user)
-        producer = get_kafka_producer()
-        message = {
-            "user_id": str(new_user.id),  # Include the user's ID
-            "status": "user_created"
-        } 
-        producer.send('user-events', value=message)
-        producer.flush()
+        # Kafka operations
+        try:
+            message = {
+                "event_type": "UserCreated",
+                "user_id": str(new_user.id),
+                "username": new_user.username,
+                "email": new_user.email,
+                "first_name": new_user.first_name,
+                "last_name": new_user.last_name,
+                "roles": [role.name for role in new_user.roles],
+                "created_at": new_user.date_created.isoformat()
+            }
+            topic = "user-events"
+            await start_kafka_producer()
+            await send_kafka_message(topic, message)
+            await stop_kafka_producer()
+        except Exception as e:
+            logger.error(f"Failed to send Kafka message: {e}")
         return api_response(data=user_json, message='User created successfully', status_code=201)
 
 
@@ -85,11 +100,21 @@ async def get_user(user_id):
     # Serialize the user data using Marshmallow
     user_data = UserSchema().dump(user)
 
-    producer = get_kafka_producer()
-    message = {"user_id": user_id, "status": "user_fetched"}
-    producer.send('user-events', value=message)
-    producer.flush()
-    return api_response(data=user_data, message='User retrieved successfully', status_code=201)
+    message = {
+        "event_type": "UserFetched",
+        "user_id": user_id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "roles": [role.name for role in user.roles],
+        "fetched_at": datetime.now(timezone.utc).isoformat()
+    }
+    topic = "user-events"
+    await start_kafka_producer()
+    await send_kafka_message(topic, message)
+    await stop_kafka_producer()
+    return api_response(data=user_data, message='User retrieved successfully', status_code=200)
    
 
 @handle_exceptions
@@ -101,15 +126,27 @@ async def update_user(user_id):
     user_data = UserSchema().load(data, partial=True)
     for key, value in user_data.items():
         setattr(user, key, value)
-    async for session in get_db_session():
+    async with get_db_session() as session:
         session.add(user)
         await session.commit()
         updated_user = UserSchema().dump(user)
 
-        producer = get_kafka_producer()
-        message = {"user_id": user_id, "status": "user_updated"}
-        producer.send('user-events', value=message)
-        producer.flush()
+        message = {
+            "event_type": "UserUpdated",
+            "user_id": user_id,
+            "updated_fields": {
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name
+            },
+            "roles": [role.name for role in user.roles],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        topic = "user-events"
+        await start_kafka_producer()
+        await send_kafka_message(topic, message)
+        await stop_kafka_producer()
         
         return api_response(data=updated_user, message='User updated successfully')
 
@@ -160,7 +197,7 @@ async def delete_user(user_id):
     
     current_user_id = get_jwt_identity()
     
-    async for session in get_db_session():
+    async with get_db_session() as session:
         try:
             # Check if the current user is the user being deleted or an admin
             if str(current_user_id) != str(user_id):
@@ -175,16 +212,24 @@ async def delete_user(user_id):
             await session.delete(user)
             await session.commit()
 
-            producer = get_kafka_producer()
-            message = {"user_id": user_id, "status": "user_deleted"}
-            producer.send('user-events', value=message)
-            producer.flush()
-            
+            message = {
+                "event_type": "UserDeleted",
+                "user_id": user_id,
+                "username": user.username,
+                "email": user.email,
+                "roles": [role.name for role in user.roles],
+                "deleted_at": datetime.now(timezone.utc).isoformat(),
+                "deleted_by": str(current_user_id)  # ID of the user who performed the deletion
+            }
+            topic = "user-events"
+            await start_kafka_producer()
+            await send_kafka_message(topic, message)
+            await stop_kafka_producer()
             if str(current_user_id) == str(user_id):
                 return api_response(message='Your account has been deleted')
             else:
                 return api_response(message='User has been deleted')
-    
+
         except Exception as e:
             await session.rollback()
             print(f"Unexpected error during user deletion: {str(e)}")
@@ -223,16 +268,23 @@ async def update_password(user_id):
 
     hashed_new_password = hash_password(new_password)
 
-    async for session in get_db_session():
+    async with get_db_session() as session:
         user.password = hashed_new_password
         session.add(user)
         await session.commit()
 
         # TODO: Invalidate active session
-    producer = get_kafka_producer()
-    message = {"user_id": user_id, "status": "password_updated"}
-    producer.send('user-events', value=message)
-    producer.flush()
+
+    message = {
+        "event_type": "PasswordUpdated",
+        "user_id": user_id,
+        "username": user.username,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    topic = "user-events"
+    await start_kafka_producer()
+    await send_kafka_message(topic, message)
+    await stop_kafka_producer()
     return api_response(message='Password updated successfully')
 
 
@@ -265,22 +317,23 @@ async def reset_password():
         token_expiry = datetime.now(timezone.utc) + timedelta(hours=1)
 
         user.reset_token = reset_token
-        user.token_expiry = token_expiry
+        user.token_expiry = token_expiry.replace(tzinfo=None)
 
         session.add(user)
         await session.commit()
-
-        reset_link = await generate_reset_link(user)
-        email_sent = await send_email(
-            subject="Password Reset Request",
-            recipients=[user.email],
-            body=f"To reset your password, click the following link: {reset_link}\n\n"
-                 f"If you did not request this, please ignore this email."
-        )
-
-        if not email_sent:
-            return api_response(message='Failed to send email', status_code=500)
-
+    
+        # Send event to Kafka
+        message = {
+            "event_type": "PasswordResetRequested",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_id": str(user.id),
+            "reset_token": reset_token,
+            "token_expiry": token_expiry.isoformat()
+        }
+        topic = "user-events"
+        await start_kafka_producer()
+        await send_kafka_message(topic, message)
+        await stop_kafka_producer()
     return api_response(message='Password reset email sent')
 
 
@@ -344,19 +397,41 @@ async def login():
     data = await request.get_json()
     email = data.get('email')
     password = data.get('password')
+    
     if not email or not password:
         return api_response(message='Email and password are required', status_code=400)
-    async for session in get_db_session():
+    
+    async with get_db_session() as session:
         result = await session.execute(select(User).filter_by(email=email))
         user = result.scalars().first()
+        
         if not user or not check_password(user.password, password):
             return api_response(message='Invalid email or password', status_code=401)
+        
         if not user.isActive:
             user.isActive = True
             session.add(user)
             await session.commit()
+        
         access_token = create_access_token(identity=user.id)
         refresh_token = create_refresh_token(identity=user.id)
+        
+        # Get IP address and user agent from request headers
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        user_agent = request.headers.get('User-Agent', 'unknown')
+
+        # Create the login event
+        message = {
+            "event_type": "Login",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_id": str(user.id),
+            "ip_address": ip_address,
+            "user_agent": user_agent
+        }
+        topic = "user-events"
+        await start_kafka_producer()
+        await send_kafka_message(topic, message)
+        await stop_kafka_producer()
         response = api_response(data={'access_token': access_token}, message='Login successful')
         set_access_cookies(response[0], access_token)
         set_refresh_cookies(response[0], refresh_token)
@@ -373,6 +448,24 @@ async def logout():
     Returns:
         JSON response indicating the success of the logout.
     """
+    current_user_id = get_jwt_identity()
+
+    # Get IP address and user agent from request headers
+    ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent', 'unknown')
+
+    # Create the logout event
+    message = {
+        "event_type": "Logout",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "user_id": str(current_user_id),
+        "ip_address": ip_address,
+        "user_agent": user_agent
+    }
+    topic = "user-events"
+    await start_kafka_producer()
+    await send_kafka_message(topic, message)
+    await stop_kafka_producer()
     response = api_response(message="Successfully logged out")
     unset_jwt_cookies(response[0])
     return response
@@ -421,11 +514,18 @@ async def deactivate(user_id):
 
         updated_user = UserSchema().dump(user)
     
-    producer = get_kafka_producer()
-    message = {"user_id": user_id, "status": "user_deactivated"}
-    producer.send('user-events', value=message)
-    producer.flush()
-
+    message = {
+        "event_type": "UserDeactivated",
+        "user_id": user_id,
+        "username": user.username,
+        "deactivated_at": datetime.now(timezone.utc).isoformat(),
+        "deactivated_by": user_id  # ID of the user who performed the deactivation
+    }
+    topic = "user-events"
+    await start_kafka_producer()
+    await send_kafka_message(topic, message)
+    await stop_kafka_producer()
+    
     return api_response(data=updated_user, message='User deactivated successfully')
     
     
@@ -457,10 +557,17 @@ async def reactivate(user_id):
 
         updated_user = UserSchema().dump(user)
 
-        producer = get_kafka_producer()
-        message = {"user_id": user_id, "status": "user_reactivated"}
-        producer.send('user-events', value=message)
-        producer.flush()
+        message = {
+            "event_type": "UserReactivated",
+            "user_id": user_id,
+            "username": user.username,
+            "deactivated_at": datetime.now(timezone.utc).isoformat(),
+            "deactivated_by": user_id  # ID of the user who performed the deactivation
+        }
+        topic = "user-events"
+        await start_kafka_producer()
+        await send_kafka_message(topic, message)
+        await stop_kafka_producer()
 
         return api_response(data=updated_user, message='User reactivated successfully')
 
@@ -486,7 +593,7 @@ async def assign_role_to_user(user_id, role_id):
     except ValueError:
         return api_response(message='Invalid ID format', status_code=400)
 
-    async for session in get_db_session():
+    async with get_db_session() as session:
         user_result = await session.execute(select(User).filter_by(id=uuid_user))
         user = user_result.scalars().first()
 
@@ -505,14 +612,19 @@ async def assign_role_to_user(user_id, role_id):
         user.roles.append(role)
         session.add(user)
         await session.commit()
-        producer = get_kafka_producer()
         message = {
-            "user_id": user_id,  # Include the user's ID
-            "status": "role_assigned_to_user",
-            "role_id": role_id
-        } 
-        producer.send('user-events', value=message)
-        producer.flush()
+            "event_type": "role_assigned_to_user",
+            "user_id": user_id,
+            "username": user.username,
+            "role_id": role_id,
+            "role_name": role.name,
+            "assigned_at": datetime.now(timezone.utc).isoformat(),
+            #"assigned_by": user_id  # ID of the user who assigned the role
+        }
+        topic = "user-events"
+        await start_kafka_producer()
+        await send_kafka_message(topic, message)
+        await stop_kafka_producer()
         return api_response(message=f'Role {role.name} assigned to user {user.username} successfully')
 
 
@@ -549,7 +661,7 @@ async def get_roles():
     Returns:
         JSON response containing the list of roles.
     """
-    async for session in get_db_session():
+    async with get_db_session() as session:
         result = await session.execute(select(Role))
         roles = result.scalars().all()
 
@@ -577,7 +689,7 @@ async def update_role(role_id):
     except ValueError:
         return api_response(message='Invalid role ID format', status_code=400)
 
-    async for session in get_db_session():
+    async with get_db_session() as session:
         result = await session.execute(select(Role).filter_by(id=uuid_obj))
         role = result.scalars().first()
 
@@ -610,7 +722,7 @@ async def delete_role(role_id):
     except ValueError:
         return api_response(message='Invalid role ID format', status_code=400)
 
-    async for session in get_db_session():
+    async with get_db_session() as session:
         result = await session.execute(select(Role).filter_by(id=uuid_obj))
         role = result.scalars().first()
 

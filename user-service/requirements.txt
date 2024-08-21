@@ -10,3 +10,6 @@ quart_rate_limiter
 pytest
 pytest-asyncio
 kafka-python
+aiokafka
+pytest-html 
+pytest-sugar

@@ -1,7 +1,9 @@
-from kafka import KafkaProducer, KafkaConsumer
-import os
+from aiokafka import AIOKafkaProducer
+import asyncio
 import json
+import os
 import logging
+from kafka.admin import KafkaAdminClient, NewTopic
 
 KAFKA_BROKER_URL = os.getenv('KAFKA_BROKER_URL', 'kafka:9092')
 
@@ -9,19 +11,57 @@ KAFKA_BROKER_URL = os.getenv('KAFKA_BROKER_URL', 'kafka:9092')
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize Kafka Admin Client
+admin_client = KafkaAdminClient(
+    bootstrap_servers=KAFKA_BROKER_URL,
+    client_id='user-service'
+)
 
-def get_kafka_producer():
-    return KafkaProducer(
-        bootstrap_servers=KAFKA_BROKER_URL,
-        value_serializer=lambda v: json.dumps(v).encode('utf-8')
+# Define Topics
+topics = [
+    NewTopic(name="user-events", num_partitions=3, replication_factor=2)
+]
+
+# Create topics
+def create_topics():
+    existing_topics = admin_client.list_topics()
+    for topic in topics:
+        if topic.name not in existing_topics:
+            admin_client.create_topics(topic, validate_only=False)
+            logger.info(f"Topic: `{topic.name}` created ")
+
+# Persistent Kafka producer
+producer = None
+
+async def start_kafka_producer():
+    global producer
+    if producer is None:
+        logger.info("Initializing Kafka producer...")
+        producer = AIOKafkaProducer(
+            bootstrap_servers=KAFKA_BROKER_URL,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
         )
+        await producer.start()
+        logger.info("Kafka producer started")
+    else:
+        logger.info("Kafka producer already initialized.")
 
+async def stop_kafka_producer():
+    global producer
+    if producer is not None:
+        await producer.stop()
+        producer = None
+        logger.info("Kafka producer stopped")
 
-def get_kafka_consumer(topic):
-    return KafkaConsumer(
-        topic,
-        bootstrap_servers=KAFKA_BROKER_URL,
-        auto_offset_reset='earliest',
-        enable_auto_commit=True,
-        group_id='user-service-group'
-    )
+async def send_kafka_message(topic="user-events", message=None):
+    global producer
+    try:
+        if producer is None:
+            await start_kafka_producer()  # Ensure the producer is started before sending
+        
+        await producer.send_and_wait(topic, message)
+        logger.info(f"Kafka message sent: {message}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send Kafka message: {e}")
+        return False

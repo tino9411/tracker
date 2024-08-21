@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   postgres:
@@ -12,6 +12,23 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres_test:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: test_user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -43,7 +60,7 @@ services:
   user-service:
     build: ./user-service
     command: >
-      sh -c "sleep 10 && quart run --host=0.0.0.0 --port=5100"
+      sh -c "sleep 10 && python run.py"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/user_db
       QUART_APP: app:create_app
@@ -56,7 +73,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  test-service:
+    build: ./user-service
+    command: "pytest -v --tb=short --show-capture=no"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/test_user_db
+      KAFKA_BROKER_URL: kafka:9092
+      PYTHONPATH: /app
+      TESTING: "True"
+    depends_on:
+      - postgres_test
+      - user-service
+      - zookeeper
+      - kafka
+
+
+
   
 
 volumes:
   postgres_data:
+  postgres_test_data:
