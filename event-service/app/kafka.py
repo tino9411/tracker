@@ -18,7 +18,7 @@ admin_client = KafkaAdminClient(
 
 # Define Topics
 topics = [
-    NewTopic(name="event-source", num_partitions=3, replication_factor=2)
+    NewTopic(name="event-source", num_partitions=3, replication_factor=1)
 ]
 
 # Create topics
@@ -52,7 +52,7 @@ async def stop_kafka_producer():
         producer = None
         logger.info("Kafka producer stopped")
 
-async def send_kafka_message(topic="user-events", message=None):
+async def send_kafka_message(topic="event-source", message=None):
     global producer
     try:
         if producer is None:

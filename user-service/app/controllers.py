@@ -65,13 +65,19 @@ async def create_user():
         try:
             message = {
                 "event_type": "UserCreated",
-                "user_id": str(new_user.id),
-                "username": new_user.username,
-                "email": new_user.email,
-                "first_name": new_user.first_name,
-                "last_name": new_user.last_name,
-                "roles": [role.name for role in new_user.roles],
-                "created_at": new_user.date_created.isoformat()
+                "aggregate_id": str(new_user.id),
+                "aggregate_type": "User",
+                "payload": {
+                    "username": new_user.username,
+                    "email": new_user.email,
+                    "first_name": new_user.first_name,
+                    "last_name": new_user.last_name,
+                    "roles": [role.name for role in new_user.roles]
+                },
+                "date_created": new_user.date_created.isoformat(),
+                "metadata": {
+                    # Add any additional metadata here, such as the user who triggered the event
+                }
             }
             topic = "user-events"
             await start_kafka_producer()
