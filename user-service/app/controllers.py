@@ -78,7 +78,6 @@ async def create_user():
         return api_response(data=user_json, message='User created successfully', status_code=201)
 
 
-
 @handle_exceptions
 @rate_limit(30, timedelta(minutes=1))
 async def get_user(user_id):
@@ -120,7 +119,6 @@ async def get_user(user_id):
     return api_response(data=user_data, message='User retrieved successfully', status_code=200)
    
 
-
 @handle_exceptions
 @rate_limit(10, timedelta(minutes=1))
 async def update_user(user_id):
@@ -154,7 +152,6 @@ async def update_user(user_id):
         await stop_kafka_producer()
         
         return api_response(data=updated_user, message='User updated successfully')
-
 
 
 @handle_exceptions
@@ -241,7 +238,6 @@ async def delete_user(user_id):
             await session.rollback()
             print(f"Unexpected error during user deletion: {str(e)}")
             return api_response(message='An unexpected error occurred', status_code=500)
-
 
 
 @handle_exceptions
