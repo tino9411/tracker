@@ -3,10 +3,12 @@ from quart import jsonify, request
 from .models import User, Role, user_roles
 from .database import get_db_session
 from .schemas import UserSchema, RoleSchema
-from .utils import (hash_password, check_password, generate_reset_link, 
-                    send_email, check_user_role, get_user_by_uuid, api_response, handle_exceptions)
-from quart_jwt_extended import create_access_token, create_refresh_token, set_refresh_cookies, unset_jwt_cookies, get_jwt_identity, set_access_cookies
-from sqlalchemy.exc import IntegrityError
+from .utils import (hash_password, check_password, 
+                    check_user_role, get_user_by_uuid, 
+                    api_response, handle_exceptions)
+from quart_jwt_extended import (create_access_token, create_refresh_token, 
+                                set_refresh_cookies, unset_jwt_cookies, 
+                                get_jwt_identity, set_access_cookies)
 from marshmallow import ValidationError
 import uuid
 from datetime import datetime, timezone, timedelta
