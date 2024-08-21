@@ -1,0 +1,14 @@
+quart
+quart-sqlalchemy
+asyncpg
+marshmallow
+python-dotenv
+quart-jwt-extended
+alembic
+quart_rate_limiter
+pytest
+pytest-asyncio
+kafka-python
+aiokafka
+pytest-html 
+pytest-sugar

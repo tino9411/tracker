@@ -2,6 +2,7 @@ version: '3.9'
 
 services:
   postgres:
+    container_name: user_db_container
     image: postgres:13
     environment:
       POSTGRES_DB: user_db
@@ -9,16 +10,35 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./user-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-event:
+    container_name: event_db_container
+    image: postgres:13
+    environment:
+      POSTGRES_DB: event_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_event_data:/var/lib/postgresql/data
+      - ./event-service/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports: 
+     - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
       timeout: 5s
       retries: 5
 
   postgres_test:
+    container_name: test_db_container
     image: postgres:13
     environment:
       POSTGRES_DB: test_user_db
@@ -26,24 +46,26 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./user-service/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
 
   zookeeper:
+    container_name: zookeeper_container
     image: wurstmeister/zookeeper:latest
     ports:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-     
+
   kafka:
+    container_name: kafka_container
     image: wurstmeister/kafka:2.13-2.8.1
     ports:
       - "9092:9092"
@@ -58,6 +80,7 @@ services:
       - zookeeper
 
   user-service:
+    container_name: user_service_container
     build: ./user-service
     command: >
       sh -c "sleep 10 && python run.py"
@@ -75,10 +98,11 @@ services:
         condition: service_healthy
 
   test-service:
+    container_name: test_service_container
     build: ./user-service
     command: "pytest -v --tb=short --show-capture=no"
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/test_user_db
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres_test:5432/test_user_db
       KAFKA_BROKER_URL: kafka:9092
       PYTHONPATH: /app
       TESTING: "True"
@@ -88,10 +112,22 @@ services:
       - zookeeper
       - kafka
 
-
-
-  
+  event-service:
+    container_name: event_service_container
+    build: ./event-service
+    command: "python run.py"
+    environment: 
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres-event:5432/event_db
+      QUART_APP: app:create_app
+      QUART_ENV: production
+      SECRET_KEY: your_secret_key
+      JWT_SECRET_KEY: your_jwt_secret_key
+      KAFKA_BROKER_URL: kafka:9092
+    depends_on:
+      postgres-event:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   postgres_test_data:
+  postgres_event_data:
