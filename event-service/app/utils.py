@@ -6,6 +6,8 @@ from .schemas import EventSchema
 import uuid
 from .database import async_session, get_db_session
 from sqlalchemy.future import select
+from datetime import datetime, timezone, timedelta
+from typing import List, Optional
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -123,3 +125,30 @@ async def ingest_event_data(event_data):
             logger.info(f"Event {new_event.id} ingested successfully")
         except ValidationError as err:
             logger.error(f"Validation error: {err.messages}")
+
+async def query_by_timestamp(start_time_str: Optional[str] = None, 
+                             end_time_str: Optional[str] = None) -> Optional[List[Event]]:
+
+    ## Parse timestamps
+    try: 
+        start_time = datetime.fromisoformat(start_time_str) if start_time_str else None
+        end_time = datetime.fromisoformat(end_time_str) if end_time_str else None
+    except ValueError:
+        return None
+    
+    # Validate that at least one timestamp is provided
+    if not start_time and not end_time:
+        return None
+    
+    # Query the database for events within the time range
+    async with get_db_session() as session:
+        query = select(Event)
+        if start_time:
+            query = query.filter(Event.date_created >= start_time)
+        if end_time:
+            query = query.filter(Event.date_created <= end_time)
+
+        result = await session.execute(query)
+        events = result.scalars().all()
+
+    return events if events else None # Return NOne if no events found
