@@ -75,11 +75,11 @@ async def create_user():
                     "roles": [role.name for role in new_user.roles]
                 },
                 "date_created": new_user.date_created.isoformat(),
-                "metadata": {
+                "event_metadata": {
                     # Add any additional metadata here, such as the user who triggered the event
                 }
             }
-            topic = "user-events"
+            topic = 'user-events'
             await start_kafka_producer()
             await send_kafka_message(topic, message)
             await stop_kafka_producer()

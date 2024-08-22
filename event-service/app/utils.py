@@ -99,7 +99,12 @@ async def ingest_event_data(event_data):
     Ingest event(s) into the event store.
 
     :param event_data: The event data or list of event data to ingest.
+    :return: A tuple (success, errors) where success is a boolean indicating 
+             whether the ingestion was successful, and errors is a list of 
+             error messages (if any).
     """
+    errors = []
+
     if isinstance(event_data, list):
         events = []
         for data in event_data:
@@ -107,13 +112,19 @@ async def ingest_event_data(event_data):
                 validated_data = EventSchema().load(data)
                 events.append(Event(**validated_data))
             except ValidationError as err:
-                logger.error(f"Validation error for event: {err.messages}")
-                continue  # Skip the invalid event and proceed with others
+                error_message = f"Validation error for event: {err.messages}"
+                logger.error(error_message)
+                errors.append(error_message)  # Capture the error message
+
+        if errors:
+            return False, errors  # Return errors if any validation fails
 
         async with get_db_session() as session:
             session.add_all(events)
             await session.commit()
         logger.info(f"{len(events)} events ingested successfully")
+        return True, None  # Success, no errors
+
     else:
         # Handle single event ingestion
         try:
@@ -123,10 +134,13 @@ async def ingest_event_data(event_data):
                 session.add(new_event)
                 await session.commit()
             logger.info(f"Event {new_event.id} ingested successfully")
+            return True, None  # Success, no errors
         except ValidationError as err:
-            logger.error(f"Validation error: {err.messages}")
-
-
+            error_message = f"Validation error: {err.messages}"
+            logger.error(error_message)
+            return False, [error_message]  # Return the validation error
+        
+        
 async def query_by_timestamp(start_time_str: Optional[str] = None, 
                              end_time_str: Optional[str] = None) -> Optional[List[Event]]:
 

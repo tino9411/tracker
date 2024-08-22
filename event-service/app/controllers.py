@@ -32,9 +32,12 @@ async def ingest_event():
         JSON response indicating the success of the ingestion process.
     """
     event_data = await request.get_json()
-    await ingest_event_data(event_data)
+    success, errors = await ingest_event_data(event_data)
+    
+    if not success:
+        return jsonify({"errors": errors}), 400
+    
     return api_response(message="Event ingested successfully", status_code=201)
-
 
 @handle_exceptions
 async def ingest_bulk_events():

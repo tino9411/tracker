@@ -10,7 +10,7 @@ from .controllers import (ingest_event, ingest_bulk_events, get_events_by_aggreg
 event = Blueprint('event', __name__)
 
 @event.route('/events', methods=['POST'])
-@jwt_required
+#@jwt_required
 async def ingest_event_route():
     return await ingest_event()
 
@@ -40,7 +40,6 @@ async def get_events_by_timestamp_route():
 
 
 @event.route('/events', methods=['GET'])
-@jwt_required
 async def get_all_events_route():
     return await get_all_events()
 

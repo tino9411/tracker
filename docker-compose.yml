@@ -112,8 +112,8 @@ services:
     ports:
       - "5100:5100"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - event-service
+      - postgres
 
   test-service:
     container_name: test_service_container
@@ -129,6 +129,7 @@ services:
       - user-service
       - zookeeper
       - kafka
+      - event-service
 
   event-service:
     container_name: event_service_container
@@ -141,6 +142,8 @@ services:
       SECRET_KEY: your_secret_key
       JWT_SECRET_KEY: your_jwt_secret_key
       KAFKA_BROKER_URL: kafka:9092
+    ports:
+      - "5200:5200"
     depends_on:
       postgres-event:
         condition: service_healthy
