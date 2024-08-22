@@ -114,15 +114,21 @@ async def get_user(user_id):
 
     message = {
         "event_type": "UserFetched",
-        "user_id": user_id,
-        "username": user.username,
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "roles": [role.name for role in user.roles],
-        "fetched_at": datetime.now(timezone.utc).isoformat()
+        "aggregate_id": user_id,  # Treat user_id as aggregate_id
+        "aggregate_type": "User",
+        "payload": {
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "roles": [role.name for role in user.roles]
+        },
+        "date_created": datetime.now(timezone.utc).isoformat(),  # Use the current timestamp as date_created
+        "event_metadata": {
+            "fetched_at": datetime.now(timezone.utc).isoformat()
+        }
     }
-    topic = "user-events"
+    topic = 'user-events'
     await start_kafka_producer()
     await send_kafka_message(topic, message)
     await stop_kafka_producer()
@@ -146,17 +152,23 @@ async def update_user(user_id):
 
         message = {
             "event_type": "UserUpdated",
-            "user_id": user_id,
-            "updated_fields": {
-                "username": user.username,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name
+            "aggregate_id": user_id,  # Use user_id as aggregate_id
+            "aggregate_type": "User",
+            "payload": {
+                "updated_fields": {
+                    "username": user.username,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                },
+                "roles": [role.name for role in user.roles]
             },
-            "roles": [role.name for role in user.roles],
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "date_created": datetime.now(timezone.utc).isoformat(),
+            "event_metadata": {
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
         }
-        topic = "user-events"
+        topic = 'user-events'
         await start_kafka_producer()
         await send_kafka_message(topic, message)
         await stop_kafka_producer()
@@ -228,12 +240,18 @@ async def delete_user(user_id):
 
             message = {
                 "event_type": "UserDeleted",
-                "user_id": user_id,
-                "username": user.username,
-                "email": user.email,
-                "roles": [role.name for role in user.roles],
-                "deleted_at": datetime.now(timezone.utc).isoformat(),
-                "deleted_by": str(current_user_id)  # ID of the user who performed the deletion
+                "aggregate_id": user_id,  # Use user_id as aggregate_id
+                "aggregate_type": "User",
+                "payload": {
+                    "username": user.username,
+                    "email": user.email,
+                    "roles": [role.name for role in user.roles]
+                },
+                "date_created": datetime.now(timezone.utc).isoformat(),
+                "event_metadata": {
+                    "deleted_at": datetime.now(timezone.utc).isoformat(),
+                    "deleted_by": str(current_user_id)
+                }
             }
             topic = "user-events"
             await start_kafka_producer()
@@ -292,9 +310,15 @@ async def update_password(user_id):
 
     message = {
         "event_type": "PasswordUpdated",
-        "user_id": user_id,
-        "username": user.username,
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "aggregate_id": user_id,  # Use user_id as aggregate_id
+        "aggregate_type": "User",
+        "payload": {
+            "username": user.username
+        },
+        "date_created": datetime.now(timezone.utc).isoformat(),
+        "event_metadata": {
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
     }
     topic = "user-events"
     await start_kafka_producer()
@@ -340,10 +364,14 @@ async def reset_password():
         # Send event to Kafka
         message = {
             "event_type": "PasswordResetRequested",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_id": str(user.id),
-            "reset_token": reset_token,
-            "token_expiry": token_expiry.isoformat()
+            "aggregate_id": str(user.id),  # Use user.id as aggregate_id
+            "aggregate_type": "User",
+            "payload": {
+                "reset_token": reset_token,
+                "token_expiry": token_expiry.isoformat()
+            },
+            "date_created": datetime.now(timezone.utc).isoformat(),
+            "event_metadata": {}
         }
         topic = "user-events"
         await start_kafka_producer()
@@ -439,10 +467,14 @@ async def login():
         # Create the login event
         message = {
             "event_type": "Login",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_id": str(user.id),
-            "ip_address": ip_address,
-            "user_agent": user_agent
+            "aggregate_id": str(user.id),  # Use user.id as aggregate_id
+            "aggregate_type": "User",
+            "payload": {
+                "ip_address": ip_address,
+                "user_agent": user_agent
+            },
+            "date_created": datetime.now(timezone.utc).isoformat(),
+            "event_metadata": {}
         }
         topic = "user-events"
         await start_kafka_producer()
@@ -474,10 +506,14 @@ async def logout():
     # Create the logout event
     message = {
         "event_type": "Logout",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "user_id": str(current_user_id),
-        "ip_address": ip_address,
-        "user_agent": user_agent
+        "aggregate_id": str(current_user_id),  # Use current_user_id as aggregate_id
+        "aggregate_type": "User",
+        "payload": {
+            "ip_address": ip_address,
+            "user_agent": user_agent
+        },
+        "date_created": datetime.now(timezone.utc).isoformat(),
+        "event_metadata": {}
     }
     topic = "user-events"
     await start_kafka_producer()
@@ -535,10 +571,16 @@ async def deactivate(user_id):
     
     message = {
         "event_type": "UserDeactivated",
-        "user_id": user_id,
-        "username": user.username,
-        "deactivated_at": datetime.now(timezone.utc).isoformat(),
-        "deactivated_by": user_id  # ID of the user who performed the deactivation
+        "aggregate_id": user_id,  # Use user_id as aggregate_id
+        "aggregate_type": "User",
+        "payload": {
+            "username": user.username
+        },
+        "date_created": datetime.now(timezone.utc).isoformat(),
+        "event_metadata": {
+            "deactivated_at": datetime.now(timezone.utc).isoformat(),
+            #"deactivated_by": str(current_user_id)  # ID of the user who performed the deactivation
+        }
     }
     topic = "user-events"
     await start_kafka_producer()
@@ -579,10 +621,16 @@ async def reactivate(user_id):
 
         message = {
             "event_type": "UserReactivated",
-            "user_id": user_id,
-            "username": user.username,
-            "deactivated_at": datetime.now(timezone.utc).isoformat(),
-            "deactivated_by": user_id  # ID of the user who performed the deactivation
+            "aggregate_id": user_id,  # Use user_id as aggregate_id
+            "aggregate_type": "User",
+            "payload": {
+                "username": user.username
+            },
+            "date_created": datetime.now(timezone.utc).isoformat(),
+            "event_metadata": {
+                "reactivated_at": datetime.now(timezone.utc).isoformat(),
+                #"reactivated_by": str(current_user_id)  # ID of the user who performed the reactivation
+            }
         }
         topic = "user-events"
         await start_kafka_producer()
@@ -634,13 +682,17 @@ async def assign_role_to_user(user_id, role_id):
         session.add(user)
         await session.commit()
         message = {
-            "event_type": "role_assigned_to_user",
-            "user_id": user_id,
-            "username": user.username,
-            "role_id": role_id,
-            "role_name": role.name,
-            "assigned_at": datetime.now(timezone.utc).isoformat(),
-            #"assigned_by": user_id  # ID of the user who assigned the role
+            "event_type": "RoleAssigned",
+            "aggregate_id": user_id,  # Use user_id as aggregate_id
+            "aggregate_type": "User",
+            "payload": {
+                "role_id": role_id,
+                "role_name": role.name
+            },
+            "date_created": datetime.now(timezone.utc).isoformat(),
+            "event_metadata": {
+                "assigned_at": datetime.now(timezone.utc).isoformat()
+            }
         }
         topic = "user-events"
         await start_kafka_producer()
