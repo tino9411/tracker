@@ -4,6 +4,7 @@ from quart_rate_limiter import RateLimiter
 from quart_jwt_extended import JWTManager
 from .config import Config
 from .database import async_session, Base, engine
+from .routes import event
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -36,5 +37,7 @@ async def create_app(testing=False):
         except Exception as e:
             logger.error(f"Error during startup: {str(e)}")
             raise
-        
+    
+    app.register_blueprint(event, url_prefix='/api')
+
     return app
