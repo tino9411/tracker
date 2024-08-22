@@ -6,5 +6,5 @@ class EventSchema(Schema):
     aggregate_id = fields.UUID(dump_only=True),
     aggregate_type = fields.String(required=True, validate=validate.Length(min=1, max=100))
     payload = fields.Dict(required=True)
-    date_created = fields.Datetime(dump_only=True)
-    metadata = fields.Dict()
+    date_created = fields.DateTime(dump_only=True)
+    event_metadata = fields.Dict()

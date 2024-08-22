@@ -3,7 +3,7 @@ from quart import jsonify, request
 from .models import Event
 from .database import get_db_session
 from .schemas import EventSchema
-from .utils import ( api_response, handle_exceptions)
+from .utils import ( api_response, handle_exceptions, get_entity_by_field, get_events, ingest_event_data)
 from quart_jwt_extended import (create_access_token, create_refresh_token, 
                                 set_refresh_cookies, unset_jwt_cookies, 
                                 get_jwt_identity, set_access_cookies)
@@ -22,21 +22,38 @@ logger = logging.getLogger(__name__)
 
 @handle_exceptions
 async def ingest_event():
-    pass
+    event_data = await request.get_json()
+    await ingest_event_data(event_data)
+    return api_response(message="Event ingested successfully", status_code=201)
+
 
 @handle_exceptions
 async def ingest_bulk_events():
-    pass
+    event_data = await request.get_json()
+    await ingest_event_data(event_data)
+    return api_response(message="Bulk events ingested successfully", status_code=201)
 
 
 @handle_exceptions
 async def get_events_by_aggregate(aggregate_id):
-    pass
+    events, error_reponse = await get_entity_by_field(entity_value=aggregate_id, filter_field='aggregate_id')
+    if error_reponse:
+        return error_reponse
+    # Serialise the event data using Marshmallow
+    events_data = EventSchema(many=True).dump(events)
+   
+    return api_response(data=events_data, message='Events fetched successfully', status_code=200)
 
 
 @handle_exceptions
 async def get_events_by_type(event_type):
-    pass
+
+    events, error_reponse = await get_entity_by_field(entity_value=event_type, filter_field='event_type')
+    if error_reponse:
+        return error_reponse
+    # Serialise the event data using Marshmallow
+    events_json = EventSchema(many=True).dump(events)
+    return api_response(data=events_json, message='Events fetched successfully', status_code=200)
 
 @handle_exceptions
 async def get_events_by_timestamp():
@@ -45,7 +62,11 @@ async def get_events_by_timestamp():
 
 @handle_exceptions
 async def get_all_events():
-    pass
+    events = await get_events()
+    if not events:
+            return jsonify({'error': 'No events found'}), 404
+    events_json = EventSchema(many=True).dump(events)
+    return api_response(data=events_json, message='Events fetched successfully', status_code=200)
 
 
 @handle_exceptions

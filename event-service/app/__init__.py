@@ -5,6 +5,8 @@ from quart_jwt_extended import JWTManager
 from .config import Config
 from .database import async_session, Base, engine
 from .routes import event
+from .kafka import consume_events
+import asyncio
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -15,9 +17,7 @@ jwt = JWTManager()
 async def create_app(testing=False):
     app = Quart(__name__)
     RateLimiter(app)
-
     app.config.from_object(Config(testing=testing))
-
     # Initialize extensions with the app instance
     jwt.init_app(app)
 
@@ -39,5 +39,9 @@ async def create_app(testing=False):
             raise
     
     app.register_blueprint(event, url_prefix='/api')
+
+    # Start consuming events in the background
+    loop = asyncio.get_event_loop()
+    loop.create_task(consume_events())
 
     return app

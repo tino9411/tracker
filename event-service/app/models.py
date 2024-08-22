@@ -16,4 +16,4 @@ class Event(Base):
     aggregate_type = Column(String(100), nullable=False)
     payload = Column(JSONB, nullable=False)
     date_created = Column(DateTime, nullable=False, default=func.now())
-    metadata = Column(JSONB, nullable=True)
+    event_metadata = Column(JSONB, nullable=True)

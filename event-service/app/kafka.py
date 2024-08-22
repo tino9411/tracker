@@ -1,9 +1,9 @@
-from aiokafka import AIOKafkaProducer
+from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 import json
 import os
 import logging
 from kafka.admin import KafkaAdminClient, NewTopic
-
+from .utils import ingest_event_from_kafka
 KAFKA_BROKER_URL = os.getenv('KAFKA_BROKER_URL', 'kafka:9092')
 
 # Set up logging
@@ -51,6 +51,41 @@ async def stop_kafka_producer():
         await producer.stop()
         producer = None
         logger.info("Kafka producer stopped")
+
+consumer = None
+
+async def start_kafka_consumer():
+    global consumer
+    if consumer is None:
+        logger.info("Initializing Kafka consumer...")
+        consumer = AIOKafkaConsumer(
+            "user-events",
+            bootstrap_servers=KAFKA_BROKER_URL,
+            group_id="event-service-group"
+        )
+
+        await consumer.start()
+        logger.info("Kafka consumer started")
+    else:
+        logger.info("Kafka consumer already initialized.")
+
+async def stop_kafka_consumer():
+    global consumer
+    if consumer is not None:
+        await consumer.stop()
+        consumer = None
+        logger.info("Kafka consumer stopped")
+
+async def consume_events():
+    await start_kafka_consumer()
+    try:
+        async for message in consumer:
+            event_data = message.value
+            logger.info(f"Received event: {event_data}")
+            await ingest_event_from_kafka(event_data)
+    finally:
+        await stop_kafka_consumer()
+
 
 async def send_kafka_message(topic="event-source", message=None):
     global producer

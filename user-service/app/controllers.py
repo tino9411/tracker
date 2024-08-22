@@ -53,7 +53,7 @@ async def create_user():
         result = await session.execute(select(Role).filter_by(name='user'))
         user_role = result.scalars().first()
         if not user_role:
-            return api_response(data=user_data, message='Default user role not found', status_code=500)
+            return api_response(data=user_data, message='Default user role not found', status_code=404)
             # Assign the "user" role to the new user
         new_user.roles.append(user_role)
         # Add the new user to the session and commit the transaction
