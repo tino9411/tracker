@@ -99,3 +99,35 @@ async def send_kafka_message(topic="event-source", message=None):
     except Exception as e:
         logger.error(f"Failed to send Kafka message: {e}")
         return False
+    
+
+def check_kafka_health() -> bool:
+    """
+    Check the health of the Kafka connection.
+
+    Returns:
+        bool: True if the Kafka connection is healthy, False otherwise.
+    """
+    try:
+        admin_client.list_topics()  # Attempt to list Kafka topics
+        return True
+    except Exception as e:
+        logger.error(f"Kafka health check failed: {e}")
+        return False
+    
+
+def get_kafka_metrics() -> dict:
+    """
+    Retrieve Kafka metrics.
+
+    Returns:
+        dict: A dictionary containing Kafka metrics.
+    """
+    try:
+        topics = admin_client.list_topics()
+        return {
+            "topic_count": len(topics),
+        }
+    except Exception as e:
+        logger.error(f"Failed to retrieve Kafka metrics: {e}")
+        return {}

@@ -37,6 +37,24 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-read-model:  # Add this if you want a separate read model DB
+    container_name: read_model_db_container
+    image: postgres:13
+    environment:
+      POSTGRES_DB: read_model_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_read_model_data:/var/lib/postgresql/data
+      - ./event-service/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   postgres_test:
     container_name: test_db_container
     image: postgres:13
@@ -131,3 +149,4 @@ volumes:
   postgres_data:
   postgres_test_data:
   postgres_event_data:
+  postgres_read_model_data:  # Add this volume for the read model DB

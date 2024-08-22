@@ -3,6 +3,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import asynccontextmanager
+from sqlalchemy.future import select
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -47,3 +48,21 @@ async def get_db_session():
             raise
         finally:
             await session.close()
+
+
+async def check_database_health() -> bool:
+    """
+    Check the health of the database connection.
+
+    Returns:
+        bool: True if the database connection is healthy, False otherwise.
+    """
+    try:
+        async with get_db_session() as session:
+            await session.execute('SELECT 1')  # Simple query to check connection
+        return True
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return False
+    
+

@@ -7,7 +7,7 @@ import uuid
 from .database import async_session, get_db_session
 from sqlalchemy.future import select
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -126,6 +126,7 @@ async def ingest_event_data(event_data):
         except ValidationError as err:
             logger.error(f"Validation error: {err.messages}")
 
+
 async def query_by_timestamp(start_time_str: Optional[str] = None, 
                              end_time_str: Optional[str] = None) -> Optional[List[Event]]:
 
@@ -152,3 +153,94 @@ async def query_by_timestamp(start_time_str: Optional[str] = None,
         events = result.scalars().all()
 
     return events if events else None # Return NOne if no events found
+
+
+async def query_events_by_metadata(metadata_criteria: dict) -> Optional[List[Event]]:
+    """
+    Query events that match specific metadata criteria.
+
+    Args:
+        metadata_criteria (dict): The criteria to search for in the metadata.
+
+    Returns:
+        List of matching events or None if no matches found.
+    """
+    async with get_db_session() as session:
+        query = select(Event).filter(Event.metadata.contains(metadata_criteria))
+        result = await session.execute(query)
+        events = result.scalars().all()
+    return events if events else None
+
+
+def apply_event_to_aggregate(event: Event, aggregate: Dict[str, Any] = None) -> Dict[str, Any]:
+    """
+    Apply an event to an aggregate to rebuild its state.
+
+    Args:
+        event (Event): The event to apply.
+        aggregate (Dict[str, Any]): The current state of the aggregate. Defaults to an empty dict.
+
+    Returns:
+        Dict[str, Any]: The updated state of the aggregate after applying the event.
+    """
+    if aggregate is None:
+        aggregate = {}
+
+    event_type = event.event_type
+
+    if event_type == "UserCreated":
+        aggregate["user_id"] = event.aggregate_id
+        aggregate["username"] = event.payload.get("username")
+        aggregate["email"] = event.payload.get("email")
+        aggregate["first_name"] = event.payload.get("first_name")
+        aggregate["last_name"] = event.payload.get("last_name")
+        aggregate["roles"] = event.payload.get("roles", [])
+
+    elif event_type == "UserUpdated":
+        if "username" in event.payload:
+            aggregate["username"] = event.payload["username"]
+        if "email" in event.payload:
+            aggregate["email"] = event.payload["email"]
+        if "first_name" in event.payload:
+            aggregate["first_name"] = event.payload["first_name"]
+        if "last_name" in event.payload:
+            aggregate["last_name"] = event.payload["last_name"]
+        if "roles" in event.payload:
+            aggregate["roles"] = event.payload["roles"]
+
+    elif event_type == "UserDeleted":
+        aggregate["deleted"] = True
+
+    elif event_type == "PasswordUpdated":
+        aggregate["password_updated_at"] = event.timestamp
+
+    elif event_type == "PasswordResetRequested":
+        aggregate["reset_token"] = event.payload.get("reset_token")
+        aggregate["token_expiry"] = event.payload.get("token_expiry")
+
+    elif event_type == "UserDeactivated":
+        aggregate["is_active"] = False
+
+    elif event_type == "UserReactivated":
+        aggregate["is_active"] = True
+
+    elif event_type == "RoleAssignedToUser":
+        if "roles" not in aggregate:
+            aggregate["roles"] = []
+        aggregate["roles"].append(event.payload.get("role_name"))
+
+    return aggregate
+
+
+async def get_database_metrics() -> dict:
+    """
+    Retrieve database metrics.
+
+    Returns:
+        dict: A dictionary containing database metrics.
+    """
+    async with get_db_session() as session:
+        event_count = await session.scalar(select(func.count(Event.id)))
+        return {
+            "event_count": event_count,
+        }
