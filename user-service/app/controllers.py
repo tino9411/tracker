@@ -123,9 +123,9 @@ async def get_user(user_id):
             "last_name": user.last_name,
             "roles": [role.name for role in user.roles]
         },
-        "date_created": datetime.now(timezone.utc).isoformat(),  # Use the current timestamp as date_created
+        "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),  # Use the current timestamp as date_created
         "event_metadata": {
-            "fetched_at": datetime.now(timezone.utc).isoformat()
+            "fetched_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
     }
     topic = 'user-events'
@@ -163,9 +163,9 @@ async def update_user(user_id):
                 },
                 "roles": [role.name for role in user.roles]
             },
-            "date_created": datetime.now(timezone.utc).isoformat(),
+            "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event_metadata": {
-                "updated_at": datetime.now(timezone.utc).isoformat()
+                "updated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             }
         }
         topic = 'user-events'
@@ -247,9 +247,9 @@ async def delete_user(user_id):
                     "email": user.email,
                     "roles": [role.name for role in user.roles]
                 },
-                "date_created": datetime.now(timezone.utc).isoformat(),
+                "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "event_metadata": {
-                    "deleted_at": datetime.now(timezone.utc).isoformat(),
+                    "deleted_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                     "deleted_by": str(current_user_id)
                 }
             }
@@ -315,9 +315,9 @@ async def update_password(user_id):
         "payload": {
             "username": user.username
         },
-        "date_created": datetime.now(timezone.utc).isoformat(),
+        "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "event_metadata": {
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
     }
     topic = "user-events"
@@ -370,7 +370,7 @@ async def reset_password():
                 "reset_token": reset_token,
                 "token_expiry": token_expiry.isoformat()
             },
-            "date_created": datetime.now(timezone.utc).isoformat(),
+            "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event_metadata": {}
         }
         topic = "user-events"
@@ -473,7 +473,7 @@ async def login():
                 "ip_address": ip_address,
                 "user_agent": user_agent
             },
-            "date_created": datetime.now(timezone.utc).isoformat(),
+            "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event_metadata": {}
         }
         topic = "user-events"
@@ -512,7 +512,7 @@ async def logout():
             "ip_address": ip_address,
             "user_agent": user_agent
         },
-        "date_created": datetime.now(timezone.utc).isoformat(),
+        "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "event_metadata": {}
     }
     topic = "user-events"
@@ -576,9 +576,9 @@ async def deactivate(user_id):
         "payload": {
             "username": user.username
         },
-        "date_created": datetime.now(timezone.utc).isoformat(),
+        "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         "event_metadata": {
-            "deactivated_at": datetime.now(timezone.utc).isoformat(),
+            "deactivated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             #"deactivated_by": str(current_user_id)  # ID of the user who performed the deactivation
         }
     }
@@ -626,9 +626,9 @@ async def reactivate(user_id):
             "payload": {
                 "username": user.username
             },
-            "date_created": datetime.now(timezone.utc).isoformat(),
+            "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event_metadata": {
-                "reactivated_at": datetime.now(timezone.utc).isoformat(),
+                "reactivated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 #"reactivated_by": str(current_user_id)  # ID of the user who performed the reactivation
             }
         }
@@ -689,9 +689,9 @@ async def assign_role_to_user(user_id, role_id):
                 "role_id": role_id,
                 "role_name": role.name
             },
-            "date_created": datetime.now(timezone.utc).isoformat(),
+            "date_created": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "event_metadata": {
-                "assigned_at": datetime.now(timezone.utc).isoformat()
+                "assigned_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
             }
         }
         topic = "user-events"
